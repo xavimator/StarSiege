@@ -502,44 +502,86 @@ function addImpact(panel,fx,fy,color,hit){
   wrap.appendChild(svg);panel.appendChild(wrap);
 }
 
-/* render */
+/* render
+   ─────────────────────────────────────────────────────────────
+   MIRROR LOGIC:
+   · J1 owns TOP panel, J2 owns BOTTOM panel.
+   · A player fires in their OWN panel at coords (fx, fy).
+   · The "mirror" impact in the RIVAL panel lands at the SAME
+     relative (fx, fy) — because the panels are identical in size
+     and the symmetry is positional: same % from left, same % from top.
+   · So:  shot mark  → own panel   @ guess.(fx,fy)
+          impact mark → rival panel @ guess.(fx,fy)   ← same coords, different panel = mirror
+   · The error = distance between guess.(fx,fy) and target.(fx,fy)
+     (target lives in the rival panel, same coordinate space).
+   ─────────────────────────────────────────────────────────────
+*/
 function renderFullState(){
   const cp=currentPlayer,rival=cp===1?2:1;
-  const ownPanel=cp===1?pTop:pBot,rivPanel=cp===1?pBot:pTop;
-  const ownPoints=cp===1?points1:points2,rivPoints=cp===1?points2:points1;
+  // ownPanel  = the panel that belongs to the current player (they click here)
+  // rivPanel  = the panel that belongs to the rival (read-only reference)
+  const ownPanel=cp===1?pTop:pBot;
+  const rivPanel=cp===1?pBot:pTop;
+  const ownPoints=cp===1?points1:points2;   // current player's placed dots
+  const rivPoints=cp===1?points2:points1;   // rival's placed dots (targets shown for reference)
   const remaining=cp===1?remaining1:remaining2;
   const ownColor=cp===1?'var(--c1)':'var(--c2)';
   const rivColor=cp===1?'var(--c2)':'var(--c1)';
   clearDots(ownPanel);clearDots(rivPanel);
 
-  // rival panel: targets
+  /* ── RIVAL PANEL (read-only) ────────────────────────────
+     Shows: rival's placed targets (for visual reference)
+            + shot marks where the RIVAL fired from this panel
+            + impact marks where the CURRENT PLAYER's shots landed (mirror of own-panel shots)
+  */
+  // rival's placed target dots
   for(let i=0;i<TOTAL;i++){
     const pt=rivPoints[i];
     const wasHit=history.some(h=>h.player===cp&&h.target===i&&h.hit);
     const isRem=remaining.includes(i);
-    if(wasHit){addDot(rivPanel,pt.fx,pt.fy,rivColor,7,.18);}
-    else if(isRem){
+    if(wasHit){
+      addDot(rivPanel,pt.fx,pt.fy,rivColor,7,.2);
+    } else if(isRem){
       const isNext=remaining[0]===i;
       addDot(rivPanel,pt.fx,pt.fy,rivColor,14,1,isNext?'dot-active':'');
       addLbl(rivPanel,pt.fx,pt.fy,i+1,rivColor);
     }
   }
-  // rival panel: rival's own shots (they fire from this panel)
-  history.filter(h=>h.player===rival).forEach(h=>addShot(rivPanel,h.guess.fx,h.guess.fy,rivColor,h.hit));
-  // rival panel: current player's impacts land here
-  history.filter(h=>h.player===cp).forEach(h=>addImpact(rivPanel,h.guess.fx,h.guess.fy,ownColor,h.hit));
+  // rival's own shot marks (rival fired from their own panel = rivPanel)
+  history.filter(h=>h.player===rival)
+    .forEach(h=>addShot(rivPanel,h.guess.fx,h.guess.fy,rivColor,h.hit));
+  // current player's impacts on rival panel:
+  // shot fired at (fx,fy) in OWN panel → mirror lands at same (fx,fy) in RIVAL panel
+  history.filter(h=>h.player===cp)
+    .forEach(h=>addImpact(rivPanel,h.guess.fx,h.guess.fy,ownColor,h.hit));
 
-  // own panel: dim placed dots
-  for(let i=0;i<TOTAL;i++) addDot(ownPanel,ownPoints[i].fx,ownPoints[i].fy,ownColor,8,.1);
-  // own panel: own shots
-  history.filter(h=>h.player===cp).forEach(h=>addShot(ownPanel,h.guess.fx,h.guess.fy,ownColor,h.hit));
-  // own panel: rival's impacts land here
-  history.filter(h=>h.player===rival).forEach(h=>addImpact(ownPanel,h.guess.fx,h.guess.fy,rivColor,h.hit));
+  /* ── OWN PANEL (clickable) ──────────────────────────────
+     Shows: player's own placed dots (very dim, just reference)
+            + own shot marks where player fired
+            + rival's impact marks (mirror of rival's shots, landing here)
+  */
+  // own placed dots (dim)
+  for(let i=0;i<TOTAL;i++)
+    addDot(ownPanel,ownPoints[i].fx,ownPoints[i].fy,ownColor,8,.1);
+  // own shot marks (fired from here)
+  history.filter(h=>h.player===cp)
+    .forEach(h=>addShot(ownPanel,h.guess.fx,h.guess.fy,ownColor,h.hit));
+  // rival's impacts land here (mirror of rival's shots):
+  // rival fired at (fx,fy) in THEIR panel → mirror impact at same (fx,fy) in OWN panel
+  history.filter(h=>h.player===rival)
+    .forEach(h=>addImpact(ownPanel,h.guess.fx,h.guess.fy,rivColor,h.hit));
 
-  ownPanel.classList.remove('off');rivPanel.classList.add('off');
+  ownPanel.classList.remove('off');
+  rivPanel.classList.add('off');
+
   const nextIdx=remaining[0];
-  if(cp===1){iTop.textContent=`↑ Dispara aquí · Objetivo ${nextIdx+1}`;iBot.textContent=`Objetivo ${nextIdx+1} ↓`;}
-  else      {iBot.textContent=`↓ Dispara aquí · Objetivo ${nextIdx+1}`;iTop.textContent=`Objetivo ${nextIdx+1} ↑`;}
+  if(cp===1){
+    iTop.textContent=`↑ Dispara aquí · Objetivo ${nextIdx+1}`;
+    iBot.textContent=`Objetivo ${nextIdx+1} ↓`;
+  } else {
+    iBot.textContent=`↓ Dispara aquí · Objetivo ${nextIdx+1}`;
+    iTop.textContent=`Objetivo ${nextIdx+1} ↑`;
+  }
   statusEl.innerHTML=`<b style="color:${ownColor}">J${cp}</b> — apunta al objetivo <b>${nextIdx+1}</b> en tu sector`;
   refreshPips();
 }
@@ -636,7 +678,9 @@ function handleGuess(e,player){
   history.push({player,target:targetIdx,guess,error:d,hit});
   if(hit){if(player===1){remaining1.shift();score1++;}else{remaining2.shift();score2++;}}
   refreshScores();
-  renderFullState();
+  renderFullState(); // paints shot on own panel + mirror impact on rival panel
+  // block both panels while result flash is shown
+  pTop.classList.add('off');pBot.classList.add('off');
 
   rfError.textContent=pct(d);rfError.className='rr-error-val '+errClass(d);
   if(hit){
@@ -649,7 +693,6 @@ function handleGuess(e,player){
     rfNext.style.background='rgba(100,160,255,.08)';
     rfNext.style.color='#7ab8ff';rfNext.textContent=`Turno J${next} →`;
   }
-  pTop.classList.add('off');pBot.classList.add('off');
   document.getElementById('result-flash').classList.add('show');
 }
 
