@@ -10,8 +10,7 @@
 :root{
   --c1:#ff6b35;--c2:#4ecdc4;
   --bg:#010915;--surf:#030d1c;--border:#0a1628;
-  --text:#b8d0f5;--muted:#1a2e50;
-  --divider:rgba(30,80,160,.4);
+  --text:#b8d0f5;--muted:#1a2e50;--div:rgba(30,80,160,.4);
 }
 html,body{height:100%;overflow:hidden;}
 body{
@@ -20,8 +19,6 @@ body{
   background:var(--bg);color:var(--text);user-select:none;
   -webkit-tap-highlight-color:transparent;
 }
-
-/* ── STARFIELD ── */
 #starfield{position:fixed;inset:0;z-index:0;pointer-events:none;}
 #nebula{
   position:fixed;inset:0;z-index:0;pointer-events:none;
@@ -31,60 +28,48 @@ body{
     radial-gradient(ellipse 45% 65% at 50% 90%,rgba(6,28,95,.12) 0%,transparent 70%);
 }
 
-/* ── TOPBAR ── */
+/* TOPBAR */
 #topbar{
   position:relative;z-index:20;flex-shrink:0;
   display:flex;align-items:center;justify-content:space-between;
   padding:5px 12px;
   background:linear-gradient(180deg,rgba(3,13,28,.97),rgba(1,9,21,.93));
-  border-bottom:1px solid var(--divider);gap:8px;
-  backdrop-filter:blur(10px);
+  border-bottom:1px solid var(--div);gap:8px;backdrop-filter:blur(10px);
 }
 #game-title{
   font-family:'Exo 2',sans-serif;font-weight:100;font-style:italic;
-  font-size:clamp(.65rem,2vw,.9rem);letter-spacing:7px;
-  color:#6aaaf5;text-transform:uppercase;
-  text-shadow:0 0 20px rgba(80,140,255,.35);white-space:nowrap;
+  font-size:clamp(.65rem,2vw,.9rem);letter-spacing:7px;color:#6aaaf5;
+  text-transform:uppercase;text-shadow:0 0 20px rgba(80,140,255,.35);white-space:nowrap;
 }
 #phase-msg{
   font-family:'Rajdhani',sans-serif;font-weight:300;
   font-size:clamp(.4rem,1.2vw,.55rem);color:var(--muted);
   letter-spacing:2px;text-align:center;flex:1;text-transform:uppercase;
-  transition:color .3s;
 }
 #phase-msg b{color:var(--text);font-weight:400;}
-/* scores */
 #scores{display:flex;gap:10px;flex-shrink:0;align-items:center;}
 .sb{text-align:center;}
 .sb-lbl{font-family:'Exo 2',sans-serif;font-weight:200;font-size:.3rem;letter-spacing:3px;opacity:.4;display:block;}
 .sb-val{font-family:'Exo 2',sans-serif;font-weight:100;font-size:clamp(.8rem,2.5vw,1.1rem);letter-spacing:2px;}
 #sb1 .sb-val{color:var(--c1);text-shadow:0 0 10px var(--c1)44;}
 #sb2 .sb-val{color:var(--c2);text-shadow:0 0 10px var(--c2)44;}
-/* turn indicator */
-#turn-bar{
-  width:4px;height:32px;border-radius:2px;flex-shrink:0;
-  background:var(--muted);transition:background .4s,box-shadow .4s;
-}
+#turn-bar{width:4px;height:32px;border-radius:2px;flex-shrink:0;background:var(--muted);transition:background .4s,box-shadow .4s;}
 #turn-bar.t1{background:var(--c1);box-shadow:0 0 8px var(--c1)88;}
 #turn-bar.t2{background:var(--c2);box-shadow:0 0 8px var(--c2)88;}
-/* pips */
 #pips-row{display:flex;gap:4px;align-items:center;flex-shrink:0;}
 .pg{display:flex;gap:2px;}
 .pip{width:5px;height:5px;border-radius:50%;background:var(--border);transition:background .2s;}
-.pip.hit{background:#0d1e35;}
+.pip.sunk{background:#0d1e35;}
 .pip.cur1{background:var(--c1);box-shadow:0 0 4px var(--c1)99;}
 .pip.cur2{background:var(--c2);box-shadow:0 0 4px var(--c2)99;}
 
-/* ── ARENA ── */
+/* ARENA */
 #arena{position:relative;z-index:5;display:flex;flex-direction:column;flex:1;overflow:hidden;}
 .panel{flex:1;position:relative;overflow:hidden;}
 .panel.can-click{cursor:crosshair;}
 .panel.no-click{pointer-events:none;}
-#panel-top{border-bottom:1px solid var(--divider);}
-#panel-top{background:linear-gradient(180deg,rgba(2,10,26,.28),rgba(1,7,18,.08));}
+#panel-top{border-bottom:1px solid var(--div);background:linear-gradient(180deg,rgba(2,10,26,.28),rgba(1,7,18,.08));}
 #panel-bot{background:linear-gradient(0deg,rgba(2,10,26,.28),rgba(1,7,18,.08));}
-
-/* subtle player label */
 .ptag{
   position:absolute;top:7px;left:11px;
   font-family:'Exo 2',sans-serif;font-weight:100;font-style:italic;
@@ -94,101 +79,84 @@ body{
 #panel-top .ptag{color:var(--c1);}
 #panel-bot .ptag{color:var(--c2);}
 
-/* ── RESULT TOAST (small, non-blocking) ── */
-#toast{
-  position:fixed;left:50%;bottom:12px;transform:translateX(-50%) translateY(80px);
-  z-index:50;pointer-events:none;
-  display:flex;align-items:center;gap:10px;
-  padding:7px 16px;
-  background:rgba(3,13,28,.92);border:1px solid var(--divider);
-  border-radius:3px;backdrop-filter:blur(10px);
-  transition:transform .22s ease,opacity .22s ease;opacity:0;
-}
-#toast.show{transform:translateX(-50%) translateY(0);opacity:1;}
-#toast-err{
-  font-family:'Exo 2',sans-serif;font-weight:100;
-  font-size:clamp(.9rem,3vw,1.4rem);letter-spacing:3px;
-}
-#toast-err.perfect{color:#e8ff00;text-shadow:0 0 12px #e8ff0077;}
-#toast-err.good   {color:#7dff7d;text-shadow:0 0 10px #7dff7d55;}
-#toast-err.ok     {color:#ffcc00;text-shadow:0 0 10px #ffcc0044;}
-#toast-err.bad    {color:#ff4444;text-shadow:0 0 10px #ff444433;}
-#toast-msg{font-family:'Rajdhani',sans-serif;font-weight:300;font-size:.48rem;letter-spacing:2px;color:var(--muted);text-transform:uppercase;}
+/* MARKS */
+.mk{position:absolute;pointer-events:none;transform:translate(-50%,-50%);transition:left .6s ease,top .6s ease;}
+.mk svg{display:block;}
+.mk.no-transition{transition:none;}
 
-/* ── PLACEMENT PICKER (bottom sheet) ── */
+/* MINI EXPLOSION */
+@keyframes explode{
+  0%  {transform:translate(-50%,-50%) scale(.2);opacity:1;}
+  60% {transform:translate(-50%,-50%) scale(1.4);opacity:.8;}
+  100%{transform:translate(-50%,-50%) scale(2);opacity:0;}
+}
+.mini-exp{position:absolute;pointer-events:none;transform:translate(-50%,-50%);animation:explode .5s ease-out forwards;}
+
+/* PICKER */
 #picker{
   position:fixed;bottom:0;left:0;right:0;z-index:30;
   background:linear-gradient(0deg,rgba(3,13,28,.98),rgba(3,13,28,.92));
-  border-top:1px solid var(--divider);
-  padding:8px 14px 10px;
-  display:flex;align-items:center;gap:10px;
-  backdrop-filter:blur(12px);
+  border-top:1px solid var(--div);padding:8px 12px 10px;
+  display:flex;align-items:center;gap:8px;backdrop-filter:blur(12px);
   transform:translateY(0);transition:transform .25s ease;
 }
 #picker.hide{transform:translateY(100%);}
-#picker-label{
-  font-family:'Exo 2',sans-serif;font-weight:200;
-  font-size:.44rem;letter-spacing:3px;color:var(--muted);
-  text-transform:uppercase;white-space:nowrap;flex-shrink:0;
+#picker-label{font-family:'Exo 2',sans-serif;font-weight:200;font-size:.42rem;letter-spacing:3px;color:var(--muted);text-transform:uppercase;white-space:nowrap;flex-shrink:0;}
+#picker-btns{display:flex;gap:5px;flex:1;align-items:center;}
+.pBtn{
+  display:flex;flex-direction:column;align-items:center;gap:3px;
+  padding:5px 8px;border:1px solid rgba(255,255,255,.07);background:rgba(255,255,255,.03);
+  cursor:pointer;border-radius:2px;transition:border-color .15s,background .15s;flex:1;
 }
-#picker-btns{display:flex;gap:6px;flex:1;align-items:center;}
-.pbtn{
-  display:flex;flex-direction:column;align-items:center;gap:4px;
-  padding:6px 10px;border:1px solid var(--border);background:rgba(255,255,255,.03);
-  cursor:pointer;border-radius:2px;transition:border-color .15s,background .15s;
-  flex:1;
+.pBtn.selected{background:rgba(255,255,255,.09);}
+.pBtn.disabled{opacity:.3;cursor:default;}
+.pBtn-shape{display:flex;align-items:center;justify-content:center;height:22px;}
+.pBtn-lbl{font-family:'Exo 2',sans-serif;font-weight:200;font-size:.34rem;letter-spacing:1px;opacity:.5;text-transform:uppercase;white-space:nowrap;}
+.pBtn-count{font-family:'Exo 2',sans-serif;font-weight:200;font-size:.32rem;letter-spacing:1px;opacity:.3;}
+
+/* TOAST */
+#toast{
+  position:fixed;left:50%;bottom:14px;transform:translateX(-50%) translateY(80px);
+  z-index:50;pointer-events:none;
+  display:flex;align-items:center;gap:10px;padding:6px 14px;
+  background:rgba(3,13,28,.93);border:1px solid var(--div);border-radius:3px;
+  backdrop-filter:blur(10px);transition:transform .22s ease,opacity .22s ease;opacity:0;
 }
-.pBtn:hover,.pBtn:active{background:rgba(255,255,255,.07);}
-.pBtn.selected{border-color:currentColor;background:rgba(255,255,255,.08);}
-.pBtn-shape{display:flex;align-items:center;justify-content:center;}
-.pBtn-lbl{font-family:'Exo 2',sans-serif;font-weight:200;font-size:.36rem;letter-spacing:1px;opacity:.5;text-transform:uppercase;white-space:nowrap;}
-.pBtn-count{font-family:'Exo 2',sans-serif;font-weight:200;font-size:.34rem;letter-spacing:1px;opacity:.3;}
+#toast.show{transform:translateX(-50%) translateY(0);opacity:1;}
+#toast-err{font-family:'Exo 2',sans-serif;font-weight:100;font-size:clamp(.9rem,3vw,1.4rem);letter-spacing:3px;}
+#toast-err.perfect{color:#e8ff00;text-shadow:0 0 12px #e8ff0077;}
+#toast-err.good{color:#7dff7d;text-shadow:0 0 10px #7dff7d55;}
+#toast-err.ok{color:#ffcc00;}
+#toast-err.bad{color:#ff4444;}
+#toast-msg{font-family:'Rajdhani',sans-serif;font-weight:300;font-size:.48rem;letter-spacing:2px;color:var(--muted);text-transform:uppercase;}
 
-/* ── DOTS & TARGETS ── */
-/* All game elements are SVG-drawn via canvas-like approach or absolute divs */
-.mk{position:absolute;pointer-events:none;transform:translate(-50%,-50%);}
-.mk svg{display:block;}
-
-/* ── PHASE OVERLAY (lightweight, just dims one panel during placement handoff) ── */
+/* HANDOFF VEIL */
 #handoff-veil{
   position:absolute;inset:0;z-index:15;
-  background:rgba(1,9,21,.88);
+  background:rgba(1,9,21,.9);
   display:flex;flex-direction:column;align-items:center;justify-content:center;
-  gap:10px;pointer-events:all;
-  opacity:0;transition:opacity .25s;
+  gap:10px;pointer-events:all;opacity:0;transition:opacity .25s;
 }
 #handoff-veil.show{opacity:1;}
 #handoff-veil.hide{opacity:0;pointer-events:none;}
-#hv-msg{
-  font-family:'Exo 2',sans-serif;font-weight:100;font-style:italic;
-  font-size:clamp(.7rem,2vw,.95rem);letter-spacing:5px;color:#6aaaf5;text-transform:uppercase;
-}
+#hv-msg{font-family:'Exo 2',sans-serif;font-weight:100;font-style:italic;font-size:clamp(.7rem,2vw,.95rem);letter-spacing:5px;color:#6aaaf5;text-transform:uppercase;}
 #hv-sub{font-family:'Rajdhani',sans-serif;font-weight:300;font-size:.52rem;letter-spacing:2px;color:var(--muted);text-transform:uppercase;text-align:center;max-width:240px;line-height:1.9;}
-#hv-btn{
-  font-family:'Exo 2',sans-serif;font-weight:200;font-size:.6rem;letter-spacing:4px;
-  padding:8px 22px;border:none;cursor:pointer;text-transform:uppercase;
-  transition:transform .1s,box-shadow .15s;margin-top:4px;
-}
+#hv-btn{font-family:'Exo 2',sans-serif;font-weight:200;font-size:.6rem;letter-spacing:4px;padding:8px 22px;border:none;cursor:pointer;text-transform:uppercase;margin-top:4px;transition:transform .1s;}
 #hv-btn:hover{transform:scale(1.05);}
 
-/* ── FINAL OVERLAY ── */
+/* FINAL */
 #final-overlay{
   position:fixed;inset:0;z-index:100;
   background:rgba(1,9,21,.97);backdrop-filter:blur(8px);
   display:flex;flex-direction:column;align-items:center;justify-content:center;
-  gap:14px;padding:20px;text-align:center;
-  opacity:0;pointer-events:none;transition:opacity .3s;
+  gap:14px;padding:20px;text-align:center;opacity:0;pointer-events:none;transition:opacity .3s;
 }
 #final-overlay.show{opacity:1;pointer-events:all;}
-#fo-title{
-  font-family:'Exo 2',sans-serif;font-weight:100;font-style:italic;
-  font-size:clamp(1rem,5vw,1.8rem);letter-spacing:7px;color:#6aaaf5;text-transform:uppercase;
-  text-shadow:0 0 24px rgba(80,140,255,.3);
-}
+#fo-title{font-family:'Exo 2',sans-serif;font-weight:100;font-style:italic;font-size:clamp(1rem,5vw,1.8rem);letter-spacing:7px;color:#6aaaf5;text-transform:uppercase;text-shadow:0 0 24px rgba(80,140,255,.3);}
 #fo-winner{font-family:'Exo 2',sans-serif;font-weight:200;font-style:italic;font-size:clamp(.8rem,3vw,1.1rem);letter-spacing:4px;text-transform:uppercase;}
 #fo-table{display:flex;flex-direction:column;gap:3px;width:100%;max-width:380px;max-height:45vh;overflow-y:auto;}
 .ftr{display:grid;grid-template-columns:1.2rem 1fr 1fr .9fr;gap:6px;align-items:center;
-  font-family:'Rajdhani',sans-serif;font-weight:300;font-size:.48rem;letter-spacing:1px;text-transform:uppercase;
+  font-family:'Rajdhani',sans-serif;font-weight:300;font-size:.46rem;letter-spacing:1px;text-transform:uppercase;
   padding:3px 8px;background:rgba(3,13,28,.8);border-radius:2px;}
 .ftr.hdr{color:var(--muted);font-size:.4rem;background:transparent;}
 .fe1{color:var(--c1);font-weight:400;text-align:right;}
@@ -201,66 +169,36 @@ body{
 .fo-tot-val{font-family:'Exo 2',sans-serif;font-weight:100;font-size:clamp(.85rem,3vw,1.2rem);letter-spacing:2px;}
 #fo-t1 .fo-tot-val{color:var(--c1);}
 #fo-t2 .fo-tot-val{color:var(--c2);}
-.fo-btn{
-  font-family:'Exo 2',sans-serif;font-weight:200;font-size:.62rem;letter-spacing:4px;
-  padding:9px 24px;border:none;cursor:pointer;text-transform:uppercase;
-  background:rgba(100,160,255,.1);color:#6aaaf5;border:1px solid rgba(80,130,220,.2);
-  transition:transform .1s,background .15s;
-}
+.fo-btn{font-family:'Exo 2',sans-serif;font-weight:200;font-size:.62rem;letter-spacing:4px;padding:9px 24px;border:none;cursor:pointer;text-transform:uppercase;background:rgba(100,160,255,.1);color:#6aaaf5;border:1px solid rgba(80,130,220,.2);transition:transform .1s,background .15s;}
 .fo-btn:hover{transform:scale(1.04);background:rgba(100,160,255,.18);}
 .tag{font-family:'Exo 2',sans-serif;font-weight:200;font-size:.38rem;letter-spacing:2px;padding:2px 6px;}
-.tg1{background:var(--c1);color:#000;}
-.tg2{background:var(--c2);color:#000;}
-.tgt{background:#0d1e35;color:var(--text);}
+.tg1{background:var(--c1);color:#000;}.tg2{background:var(--c2);color:#000;}.tgt{background:#0d1e35;color:var(--text);}
 </style>
 </head>
 <body>
-
 <canvas id="starfield"></canvas>
 <div id="nebula"></div>
-
 <div id="topbar">
   <div id="game-title">Star Siege</div>
   <div id="phase-msg">—</div>
-  <div id="pips-row">
-    <div class="pg" id="pg1"></div>
-    <div style="width:4px"></div>
-    <div class="pg" id="pg2"></div>
-  </div>
+  <div id="pips-row"><div class="pg" id="pg1"></div><div style="width:4px"></div><div class="pg" id="pg2"></div></div>
   <div id="scores">
     <div class="sb" id="sb1"><span class="sb-lbl">J1</span><span class="sb-val">0</span></div>
     <div id="turn-bar"></div>
     <div class="sb" id="sb2"><span class="sb-lbl">J2</span><span class="sb-val">0</span></div>
   </div>
 </div>
-
 <div id="arena">
   <div class="panel no-click" id="panel-top">
     <div class="ptag">Jugador 1</div>
     <div id="handoff-veil" class="hide">
-      <div id="hv-msg"></div>
-      <div id="hv-sub"></div>
-      <button id="hv-btn"></button>
+      <div id="hv-msg"></div><div id="hv-sub"></div><button id="hv-btn"></button>
     </div>
   </div>
-  <div class="panel no-click" id="panel-bot">
-    <div class="ptag">Jugador 2</div>
-  </div>
+  <div class="panel no-click" id="panel-bot"><div class="ptag">Jugador 2</div></div>
 </div>
-
-<!-- Placement picker -->
-<div id="picker">
-  <div id="picker-label">Elige:</div>
-  <div id="picker-btns"></div>
-</div>
-
-<!-- Result toast -->
-<div id="toast">
-  <div id="toast-err">—</div>
-  <div id="toast-msg">—</div>
-</div>
-
-<!-- Final overlay -->
+<div id="picker"><div id="picker-label">Nave:</div><div id="picker-btns"></div></div>
+<div id="toast"><div id="toast-err">—</div><div id="toast-msg">—</div></div>
 <div id="final-overlay">
   <div id="fo-title">Fin de la batalla</div>
   <div id="fo-winner"></div>
@@ -273,203 +211,114 @@ body{
 </div>
 
 <script>
-/* ═══ STARFIELD ═══ */
+/* ══════════════ STARFIELD ══════════════ */
 (function(){
-  const cv=document.getElementById('starfield'),ctx=cv.getContext('2d');
-  let stars=[];
+  const cv=document.getElementById('starfield'),ctx=cv.getContext('2d');let stars=[];
   function resize(){cv.width=innerWidth;cv.height=innerHeight;build();}
-  function build(){
-    stars=[];const n=Math.floor(cv.width*cv.height/900);
-    for(let i=0;i<n;i++){
-      const t=Math.random();
-      let rv,gv,bv;
-      const c=Math.random();
-      if(c<.6){rv=170;gv=195;bv=255;}
-      else if(c<.78){rv=130;gv=165;bv=255;}
-      else if(c<.9){rv=200;gv=218;bv=255;}
-      else if(c<.96){rv=255;gv=215;bv=170;}
-      else{rv=150;gv=190;bv=255;}
+  function build(){stars=[];const n=Math.floor(cv.width*cv.height/900);
+    for(let i=0;i<n;i++){const t=Math.random();let rv,gv,bv;const c=Math.random();
+      if(c<.6){rv=170;gv=195;bv=255;}else if(c<.78){rv=130;gv=165;bv=255;}
+      else if(c<.9){rv=200;gv=218;bv=255;}else if(c<.96){rv=255;gv=215;bv=170;}else{rv=150;gv=190;bv=255;}
       stars.push({x:Math.random()*cv.width,y:Math.random()*cv.height,
         r:t<.55?Math.random()*.38+.1:t<.85?Math.random()*.65+.28:Math.random()*1.2+.6,
         base:t<.35?Math.random()*.07+.02:t<.7?Math.random()*.13+.04:Math.random()*.26+.1,
-        tw:Math.random()*.5+.1,sp:Math.random()*.4+.07,ph:Math.random()*Math.PI*2,rv,gv,bv});
-    }
-  }
+        tw:Math.random()*.5+.1,sp:Math.random()*.4+.07,ph:Math.random()*Math.PI*2,rv,gv,bv});}}
   let tt=0;
-  function draw(){
-    ctx.clearRect(0,0,cv.width,cv.height);tt+=.016;
-    for(const s of stars){
-      const a=Math.max(0,Math.min(1,s.base+Math.sin(tt*s.sp+s.ph)*s.tw*s.base));
-      if(s.r>.6&&a>.1){
-        const g=ctx.createRadialGradient(s.x,s.y,0,s.x,s.y,s.r*3.5);
-        g.addColorStop(0,`rgba(${s.rv},${s.gv},${s.bv},${a*.45})`);
-        g.addColorStop(1,`rgba(${s.rv},${s.gv},${s.bv},0)`);
-        ctx.globalAlpha=1;ctx.beginPath();ctx.arc(s.x,s.y,s.r*3.5,0,Math.PI*2);
-        ctx.fillStyle=g;ctx.fill();
-      }
+  function draw(){ctx.clearRect(0,0,cv.width,cv.height);tt+=.016;
+    for(const s of stars){const a=Math.max(0,Math.min(1,s.base+Math.sin(tt*s.sp+s.ph)*s.tw*s.base));
+      if(s.r>.6&&a>.1){const g=ctx.createRadialGradient(s.x,s.y,0,s.x,s.y,s.r*3.5);
+        g.addColorStop(0,`rgba(${s.rv},${s.gv},${s.bv},${a*.45})`);g.addColorStop(1,`rgba(${s.rv},${s.gv},${s.bv},0)`);
+        ctx.globalAlpha=1;ctx.beginPath();ctx.arc(s.x,s.y,s.r*3.5,0,Math.PI*2);ctx.fillStyle=g;ctx.fill();}
       ctx.globalAlpha=a;ctx.beginPath();ctx.arc(s.x,s.y,s.r,0,Math.PI*2);
-      ctx.fillStyle=`rgb(${s.rv},${s.gv},${s.bv})`;ctx.fill();
-    }
-    ctx.globalAlpha=1;requestAnimationFrame(draw);
-  }
+      ctx.fillStyle=`rgb(${s.rv},${s.gv},${s.bv})`;ctx.fill();}
+    ctx.globalAlpha=1;requestAnimationFrame(draw);}
   addEventListener('resize',resize);resize();draw();
 })();
 
-/* ═══ TARGET TYPES ═══
-   quota: how many per player
-   Each target has a visual shape and a hit-zone size (% of panel)
-   Symmetry: J1 fires from TOP, mirror lands at SAME fx but (1-fy) in BOTTOM
-             J2 fires from BOT, mirror lands at SAME fx but (1-fy) in TOP
-*/
-const TARGET_TYPES=[
-  {id:'xl',  label:'Grande',   quota:1, hitPct:5,  draw:drawXL},
-  {id:'md',  label:'Mediana',  quota:2, hitPct:3,  draw:drawMD},
-  {id:'lg',  label:'Larga',    quota:2, hitPct:2,  draw:drawLG},
-  {id:'xs',  label:'Pequeña',  quota:5, hitPct:1.5,draw:drawXS},
-];
-const TOTAL_TARGETS=TARGET_TYPES.reduce((s,t)=>s+t.quota,0); // 10
-
-/* ─── SVG shape drawers (return SVG element) ─── */
+/* ══════════════ SVG HELPERS ══════════════ */
 function ns(t){return document.createElementNS('http://www.w3.org/2000/svg',t);}
-function mkSVG(w,h){const s=ns('svg');s.setAttribute('width',w);s.setAttribute('height',h);s.setAttribute('viewBox',`0 0 ${w} ${h}`);s.setAttribute('overflow','visible');return s;}
+function mkSVG(w,h){const s=ns('svg');s.setAttribute('width',w);s.setAttribute('height',h);
+  s.setAttribute('viewBox',`0 0 ${w} ${h}`);s.setAttribute('overflow','visible');return s;}
+function addEl(svg,tag,attr){const e=ns(tag);Object.entries(attr).forEach(([k,v])=>e.setAttribute(k,v));svg.appendChild(e);return e;}
 
-function drawXL(color,alpha=1){
-  // Large: 28px circle with rings
-  const sz=28,cx=14,cy=14,svg=mkSVG(sz,sz);
-  const add=(tag,attr)=>{const e=ns(tag);Object.entries(attr).forEach(([k,v])=>e.setAttribute(k,v));svg.appendChild(e);return e;};
-  add('circle',{cx,cy,r:12,stroke:color,'stroke-width':1.2,fill:'none',opacity:alpha*.5});
-  add('circle',{cx,cy,r:7, stroke:color,'stroke-width':.8,fill:'none',opacity:alpha*.7});
-  add('circle',{cx,cy,r:2.5,fill:color,opacity:alpha});
-  for(const a of [0,90,180,270]){const r=a*Math.PI/180;
-    add('line',{x1:cx+9*Math.cos(r),y1:cy+9*Math.sin(r),x2:cx+13*Math.cos(r),y2:cy+13*Math.sin(r),stroke:color,'stroke-width':.8,opacity:alpha*.6});}
-  return svg;
-}
-function drawMD(color,alpha=1){
-  // Medium: 18px diamond + centre
-  const sz=18,cx=9,cy=9,svg=mkSVG(sz,sz);
-  const add=(tag,attr)=>{const e=ns(tag);Object.entries(attr).forEach(([k,v])=>e.setAttribute(k,v));svg.appendChild(e);return e;};
-  add('polygon',{points:`${cx},${cy-8} ${cx+8},${cy} ${cx},${cy+8} ${cx-8},${cy}`,stroke:color,'stroke-width':1,fill:'none',opacity:alpha*.7});
-  add('circle',{cx,cy,r:2,fill:color,opacity:alpha});
-  return svg;
-}
-function drawLG(color,alpha=1){
-  // Long: horizontal bar 32×8
-  const W=32,H=8,cx=W/2,cy=H/2,svg=mkSVG(W,H);
-  const add=(tag,attr)=>{const e=ns(tag);Object.entries(attr).forEach(([k,v])=>e.setAttribute(k,v));svg.appendChild(e);return e;};
-  add('rect',{x:1,y:1,width:W-2,height:H-2,stroke:color,'stroke-width':.8,fill:'none',rx:1,opacity:alpha*.65});
-  add('line',{x1:cx,y1:1,x2:cx,y2:H-1,stroke:color,'stroke-width':.7,opacity:alpha*.5});
-  add('circle',{cx,cy,r:1.5,fill:color,opacity:alpha});
-  return svg;
-}
-function drawXS(color,alpha=1){
-  // Tiny: 8px cross
-  const sz=8,cx=4,cy=4,svg=mkSVG(sz,sz);
-  const add=(tag,attr)=>{const e=ns(tag);Object.entries(attr).forEach(([k,v])=>e.setAttribute(k,v));svg.appendChild(e);return e;};
-  add('line',{x1:cx-3,y1:cy,x2:cx+3,y2:cy,stroke:color,'stroke-width':.9,opacity:alpha*.8});
-  add('line',{x1:cx,y1:cy-3,x2:cx,y2:cy+3,stroke:color,'stroke-width':.9,opacity:alpha*.8});
-  add('circle',{cx,cy,r:1,fill:color,opacity:alpha});
-  return svg;
-}
-
-/* Shot mark (own field): small targeting reticle */
-function drawShot(color,hit){
-  const sz=hit?22:15,cx=sz/2,cy=sz/2,svg=mkSVG(sz,sz);
-  const a=hit?.85:.38,sw=hit?1.1:.65,r=sz*.3,g=sz*.13;
-  const segs=[[cx-g,cy,r,90,180],[cx,cy-g,r,180,270],[cx+g,cy,r,270,360],[cx,cy+g,r,0,90]];
-  for(const[ox,oy,rr,sa,ea] of segs){
-    const p=ns('path');
-    const s1=sa*Math.PI/180,e1=ea*Math.PI/180;
-    p.setAttribute('d',`M${ox+rr*Math.cos(s1)},${oy+rr*Math.sin(s1)} A${rr},${rr} 0 0,1 ${ox+rr*Math.cos(e1)},${oy+rr*Math.sin(e1)}`);
-    p.setAttribute('stroke',color);p.setAttribute('stroke-width',sw);p.setAttribute('fill','none');p.setAttribute('opacity',a);
-    svg.appendChild(p);
-  }
-  const cc=ns('circle');cc.setAttribute('cx',cx);cc.setAttribute('cy',cy);
-  cc.setAttribute('r',hit?1.6:1);cc.setAttribute('fill',color);cc.setAttribute('opacity',a);svg.appendChild(cc);
-  return svg;
-}
-
-/* Impact mark (rival field): explosion */
-function drawImpact(color,hit){
-  const sz=hit?34:18,cx=sz/2,cy=sz/2,svg=mkSVG(sz,sz);
-  const add=(tag,attr)=>{const e=ns(tag);Object.entries(attr).forEach(([k,v])=>e.setAttribute(k,v));svg.appendChild(e);return e;};
-  if(hit){
-    add('circle',{cx,cy,r:sz*.41,stroke:color,'stroke-width':.9,fill:'none',opacity:.4});
-    add('circle',{cx,cy,r:sz*.2, stroke:color,'stroke-width':.7,fill:'none',opacity:.55});
-    for(let i=0;i<8;i++){
-      const ang=i*Math.PI/4,r1=sz*.22,r2=sz*.46;
-      add('line',{x1:cx+r1*Math.cos(ang),y1:cy+r1*Math.sin(ang),x2:cx+r2*Math.cos(ang),y2:cy+r2*Math.sin(ang),
-        stroke:color,'stroke-width':i%2===0?1.3:.6,opacity:.88});
+/* ══════════════ SHIP TYPES ══════════════
+  hp: hit points to sink
+  canMove: dodge on hit
+  size: {w,h} in px — actual visual hit area
+  hitPx: max pixel distance from centre to count as a hit
+         (will be computed from panel size + ship size)
+  draws: function(color, hpLeft, maxHp) → SVG
+*/
+const SHIP_TYPES = [
+  {
+    id:'xl', label:'Grande', quota:1, hp:3, canMove:true,
+    w:28, h:28,
+    draw(color,hp,maxHp){
+      const a=.4+.6*(hp/maxHp), svg=mkSVG(28,28), cx=14, cy=14;
+      addEl(svg,'circle',{cx,cy,r:12,stroke:color,'stroke-width':1.2,fill:'none',opacity:a*.5});
+      addEl(svg,'circle',{cx,cy,r:7, stroke:color,'stroke-width':.8,fill:'none',opacity:a*.65});
+      addEl(svg,'circle',{cx,cy,r:2.5,fill:color,opacity:a});
+      for(let i=0;i<8;i++){const ang=i*Math.PI/4,r1=9,r2=13;
+        addEl(svg,'line',{x1:cx+r1*Math.cos(ang),y1:cy+r1*Math.sin(ang),x2:cx+r2*Math.cos(ang),y2:cy+r2*Math.sin(ang),stroke:color,'stroke-width':i%2===0?1:.6,opacity:a*.7});}
+      for(let d=0;d<maxHp-hp;d++){const ang=d*(Math.PI*2/3);
+        addEl(svg,'line',{x1:cx+4*Math.cos(ang),y1:cy+4*Math.sin(ang),x2:cx+7*Math.cos(ang),y2:cy+7*Math.sin(ang),stroke:'#ff4444','stroke-width':1.5,opacity:.9});}
+      return svg;
     }
-    add('circle',{cx,cy,r:2.8,fill:color,opacity:1});
-    add('circle',{cx,cy,r:5.5,fill:color,opacity:.22});
-  } else {
-    add('circle',{cx,cy,r:sz*.38,stroke:color,'stroke-width':.7,fill:'none',opacity:.28});
-    const d=sz*.26;
-    for(const[dx,dy]of[[1,1],[1,-1]]){
-      add('line',{x1:cx-d*dx,y1:cy-d*dy,x2:cx+d*dx,y2:cy+d*dy,stroke:color,'stroke-width':.8,opacity:.4});
+  },
+  {
+    id:'md', label:'Mediana', quota:2, hp:2, canMove:true,
+    w:18, h:18,
+    draw(color,hp,maxHp){
+      const a=.4+.6*(hp/maxHp), svg=mkSVG(18,18), cx=9, cy=9;
+      addEl(svg,'polygon',{points:`${cx},${cy-8} ${cx+8},${cy} ${cx},${cy+8} ${cx-8},${cy}`,stroke:color,'stroke-width':1.1,fill:'none',opacity:a*.7});
+      addEl(svg,'circle',{cx,cy,r:2,fill:color,opacity:a});
+      for(let d=0;d<maxHp-hp;d++){const ang=d*Math.PI;
+        addEl(svg,'line',{x1:cx+2*Math.cos(ang),y1:cy+2*Math.sin(ang),x2:cx+5*Math.cos(ang),y2:cy+5*Math.sin(ang),stroke:'#ff4444','stroke-width':1.4,opacity:.9});}
+      return svg;
+    }
+  },
+  {
+    id:'lg', label:'Larga', quota:2, hp:2, canMove:false,
+    w:32, h:8,
+    draw(color,hp,maxHp){
+      const a=.4+.6*(hp/maxHp), svg=mkSVG(32,8), cx=16, cy=4;
+      addEl(svg,'rect',{x:1,y:1,width:30,height:6,stroke:color,'stroke-width':.8,fill:'none',rx:1,opacity:a*.65});
+      addEl(svg,'line',{x1:cx,y1:1,x2:cx,y2:7,stroke:color,'stroke-width':.7,opacity:a*.5});
+      addEl(svg,'circle',{cx,cy,r:1.5,fill:color,opacity:a});
+      for(let d=0;d<maxHp-hp;d++){const x=d===0?9:23;
+        addEl(svg,'line',{x1:x,y1:1,x2:x+3,y2:7,stroke:'#ff4444','stroke-width':1.3,opacity:.9});
+        addEl(svg,'line',{x1:x+3,y1:1,x2:x,y2:7,stroke:'#ff4444','stroke-width':1.3,opacity:.9});}
+      return svg;
+    }
+  },
+  {
+    id:'xs', label:'Pequeña', quota:5, hp:1, canMove:false,
+    w:8, h:8,
+    draw(color,hp,maxHp){
+      const a=hp>0?.85:.25, svg=mkSVG(8,8), cx=4, cy=4;
+      addEl(svg,'line',{x1:cx-3,y1:cy,x2:cx+3,y2:cy,stroke:color,'stroke-width':.9,opacity:a});
+      addEl(svg,'line',{x1:cx,y1:cy-3,x2:cx,y2:cy+3,stroke:color,'stroke-width':.9,opacity:a});
+      addEl(svg,'circle',{cx,cy,r:1,fill:color,opacity:a});
+      return svg;
     }
   }
-  return svg;
-}
+];
 
-/* ═══ MARK helper: place SVG on panel ═══ */
-function placeMark(panel,fx,fy,svgEl,cls){
-  const r=panel.getBoundingClientRect();
-  const x=fx*r.width, y=fy*r.height;
-  const wrap=document.createElement('div');
-  wrap.className='mk '+(cls||'');
-  wrap.style.left=x+'px'; wrap.style.top=y+'px';
-  wrap.appendChild(svgEl);
-  panel.appendChild(wrap);
-  return wrap;
-}
-function clearMarks(panel){panel.querySelectorAll('.mk').forEach(d=>d.remove());}
+const TOTAL_SHIPS = SHIP_TYPES.reduce((s,t)=>s+t.quota,0); // 10
 
-/* ═══ SYMMETRY ═══
-   Division is HORIZONTAL (top panel / bottom panel).
-   Mirror axis = the horizontal dividing line.
-   If you fire at (fx, fy) in your own panel:
-     → mirror in rival panel lands at (fx, 1-fy)
-   Because fy=0 is top of own panel, fy=1 is bottom (near divider).
-   The mirror of fy in the other panel is measured from ITS top,
-   which is 1-fy from the divider = 1-fy in that panel's coords.
-*/
-function mirrorFy(fy){ return 1-fy; }
-
-/* Distance between guess and target, using mirror:
-   guess is at (gfx, gfy) in OWN panel.
-   target is at (tfx, tfy) in RIVAL panel.
-   Mirror of guess in rival panel = (gfx, 1-gfy).
-   Error = distance between (gfx, 1-gfy) and (tfx, tfy).
-*/
-/* dist: player fires at (gfx,gfy) in own panel.
-   Mirror in rival panel = (gfx, 1-gfy).
-   Target sits at (tfx, tfy) in rival panel.
-   Error = distance between mirror point and target. */
-function dist(gfx,gfy,tfx,tfy){
-  const dx=(gfx-tfx)*100;
-  const dy=(mirrorFy(gfy)-tfy)*100;
-  return Math.sqrt(dx*dx+dy*dy);
-}
-
-/* ═══ GAME STATE ═══ */
-let phase='place'; // 'place'|'game'|'done'
-let placingPlayer=1;
-
-// targets[player] = array of {type, fx, fy, hit:false}
-let targets={1:[],2:[]};
-// selectedType: current type chosen in picker
-let selectedType=TARGET_TYPES[0];
-// remaining picks per type per player
+/* ══════════════ GAME STATE ══════════════ */
+let phase='place', placingPlayer=1;
+// ships[player] = [{type, fx, fy, hp, id, wrap(DOM)}]
+let ships={1:[],2:[]};
 let picks={1:{},2:{}};
-
-let history=[]; // {player,targetIdx,gfx,gfy,error,hit}
+let selectedType=SHIP_TYPES[0];
+let history=[];
+// remaining[player] = indices into ships[rival] not yet sunk
 let remaining={1:[],2:[]};
 let currentPlayer=1;
 let score={1:0,2:0};
 let toastTimer=null;
 
-/* DOM */
 const pTop=document.getElementById('panel-top');
 const pBot=document.getElementById('panel-bot');
 const phaseMsg=document.getElementById('phase-msg');
@@ -479,391 +328,414 @@ const toastEl=document.getElementById('toast');
 const toastErr=document.getElementById('toast-err');
 const toastMsg=document.getElementById('toast-msg');
 const turnBar=document.getElementById('turn-bar');
-const foOverlay=document.getElementById('final-overlay');
 const hv=document.getElementById('handoff-veil');
 const hvMsg=document.getElementById('hv-msg');
 const hvSub=document.getElementById('hv-sub');
 const hvBtn=document.getElementById('hv-btn');
+const foOverlay=document.getElementById('final-overlay');
 
-function c(p){return p===1?'var(--c1)':'var(--c2)';}
+function ch(p){return p===1?'var(--c1)':'var(--c2)';}
 function hex(p){return p===1?'#ff6b35':'#4ecdc4';}
+function panel(p){return p===1?pTop:pBot;}
+function rivalPanel(p){return p===1?pBot:pTop;}
 
-/* ─── Pips ─── */
+/* ── Pips ── */
 function buildPips(){
-  document.getElementById('pg1').innerHTML='';
-  document.getElementById('pg2').innerHTML='';
-  for(let i=0;i<TOTAL_TARGETS;i++){
+  document.getElementById('pg1').innerHTML='';document.getElementById('pg2').innerHTML='';
+  for(let i=0;i<TOTAL_SHIPS;i++){
     const a=document.createElement('div');a.className='pip';a.id='pip1-'+i;document.getElementById('pg1').appendChild(a);
-    const b=document.createElement('div');b.className='pip';b.id='pip2-'+i;document.getElementById('pg2').appendChild(b);
-  }
-}
+    const b=document.createElement('div');b.className='pip';b.id='pip2-'+i;document.getElementById('pg2').appendChild(b);}}
 function refreshPips(){
-  for(let i=0;i<TOTAL_TARGETS;i++){
-    const p1=document.getElementById('pip1-'+i);
-    const p2=document.getElementById('pip2-'+i);
+  for(let i=0;i<TOTAL_SHIPS;i++){
+    const p1=document.getElementById('pip1-'+i);const p2=document.getElementById('pip2-'+i);
     if(!p1||!p2)continue;
-    const h1=history.some(h=>h.player===1&&h.targetIdx===i&&h.hit);
-    p1.className='pip'+(h1?' hit':remaining[1].includes(i)&&currentPlayer===1?' cur1':'');
-    const h2=history.some(h=>h.player===2&&h.targetIdx===i&&h.hit);
-    p2.className='pip'+(h2?' hit':remaining[2].includes(i)&&currentPlayer===2?' cur2':'');
-  }
-}
+    const s1=ships[1][i];p1.className='pip'+(s1&&s1.hp<=0?' sunk':remaining[1].includes(i)&&currentPlayer===1?' cur1':'');
+    const s2=ships[2][i];p2.className='pip'+(s2&&s2.hp<=0?' sunk':remaining[2].includes(i)&&currentPlayer===2?' cur2':'');}}
 function refreshScores(){
   document.querySelector('#sb1 .sb-val').textContent=score[1];
   document.querySelector('#sb2 .sb-val').textContent=score[2];
-  turnBar.className='turn-bar t'+(phase==='game'?currentPlayer:'');
-  turnBar.id='turn-bar';
-}
+  turnBar.className='';turnBar.id='turn-bar';
+  if(phase==='game')turnBar.classList.add('t'+currentPlayer);}
 
-/* ─── Picker ─── */
+/* ── Panel pixel helpers ── */
+function panelRect(p){return panel(p).getBoundingClientRect();}
+function fracToXY(p,fx,fy){const r=panelRect(p);return{x:fx*r.width,y:fy*r.height};}
+function xyToFrac(p,x,y){const r=panelRect(p);return{fx:x/r.width,fy:y/r.height};}
+function clickFrac(p,e){
+  const r=panel(p).getBoundingClientRect();
+  return{fx:Math.min(1,Math.max(0,(e.clientX-r.left)/r.width)),
+         fy:Math.min(1,Math.max(0,(e.clientY-r.top)/r.height))};}
+
+/* ══════════════ SYMMETRY ══════════════
+  Mirror axis = horizontal dividing line.
+  Shot fired at (fx, fy) in OWN panel →
+  mirror in RIVAL panel lands at (fx, 1-fy).
+*/
+function mirrorFy(fy){return 1-fy;}
+
+/* Pixel distance from shot (gfx,gfy in OWN panel)
+   to ship centre (sfx,sfy in RIVAL panel).
+   Convert both to pixels using rival panel dims. */
+function hitCheck(gfx,gfy,ship,rivalP){
+  const r=rivalPanel(rivalP).getBoundingClientRect();
+  // mirror of shot in rival coords
+  const sx=gfx*r.width, sy=mirrorFy(gfy)*r.height;
+  // ship centre
+  const cx=ship.fx*r.width, cy=ship.fy*r.height;
+  // half-extents of ship hitbox
+  const hw=ship.type.w/2, hh=ship.type.h/2;
+  // AABB + small circular blend: hit if within ellipse of ship dimensions
+  const dx=Math.abs(sx-cx)/hw, dy=Math.abs(sy-cy)/hh;
+  const inBox=(dx<=1&&dy<=1);
+  // pixel distance for error reporting (centre-to-centre)
+  const pxDist=Math.sqrt((sx-cx)**2+(sy-cy)**2);
+  // % relative to panel diagonal for normalised error display
+  const diag=Math.sqrt(r.width**2+r.height**2);
+  const errPct=(pxDist/diag)*100;
+  return{hit:inBox, errPct, pxDist, mirrorX:sx, mirrorY:sy};}
+
+/* ══════════════ SHIP DOM ══════════════ */
+function createShipEl(ship,playerColor){
+  const wrap=document.createElement('div');
+  wrap.className='mk no-transition';
+  wrap.dataset.shipId=ship.id;
+  const svg=ship.type.draw(playerColor,ship.hp,ship.type.hp);
+  wrap.appendChild(svg);
+  return wrap;}
+
+function positionShipEl(wrap,panel,fx,fy){
+  const r=panel.getBoundingClientRect();
+  wrap.style.left=(fx*r.width)+'px';
+  wrap.style.top=(fy*r.height)+'px';}
+
+function redrawShipSVG(ship,playerColor){
+  if(!ship.wrap)return;
+  ship.wrap.innerHTML='';
+  const svg=ship.type.draw(playerColor,ship.hp,ship.type.hp);
+  ship.wrap.appendChild(svg);}
+
+/* ══════════════ PLACEMENT ══════════════ */
+function initPicks(player){
+  picks[player]={};SHIP_TYPES.forEach(t=>{picks[player][t.id]=t.quota;});
+  selectedType=SHIP_TYPES[0];}
+
 function buildPicker(player){
   pickerBtns.innerHTML='';
-  TARGET_TYPES.forEach(tt=>{
+  SHIP_TYPES.forEach(tt=>{
     const rem=picks[player][tt.id];
     const btn=document.createElement('div');
-    btn.className='pBtn'+(tt===selectedType?' selected':'');
-    btn.style.color=hex(player);
-    btn.style.borderColor=rem>0?'rgba(255,255,255,.1)':'rgba(255,255,255,.04)';
-    btn.style.opacity=rem>0?'1':'.3';
-    btn.style.cursor=rem>0?'pointer':'default';
-
-    const shapeWrap=document.createElement('div');
-    shapeWrap.className='pBtn-shape';
-    const svgEl=tt.draw(hex(player),.8);
-    svgEl.style.maxWidth='36px';svgEl.style.maxHeight='20px';
-    shapeWrap.appendChild(svgEl);
-
+    btn.className='pBtn'+(tt===selectedType?' selected':'')+(rem<=0?' disabled':'');
+    btn.style.color=hex(player);btn.style.borderColor=rem>0?'rgba(255,255,255,.12)':'rgba(255,255,255,.04)';
+    const shapeWrap=document.createElement('div');shapeWrap.className='pBtn-shape';
+    const svg=tt.draw(hex(player),tt.hp,tt.hp);svg.style.maxWidth='44px';svg.style.maxHeight='24px';
+    shapeWrap.appendChild(svg);
     const lbl=document.createElement('div');lbl.className='pBtn-lbl';lbl.textContent=tt.label;
     const cnt=document.createElement('div');cnt.className='pBtn-count';cnt.textContent=rem>0?`×${rem}`:'—';
-
     btn.appendChild(shapeWrap);btn.appendChild(lbl);btn.appendChild(cnt);
-    if(rem>0){
-      btn.addEventListener('click',()=>{
-        selectedType=tt;
-        buildPicker(player);
-      });
-    }
-    pickerBtns.appendChild(btn);
-  });
-}
-
-/* ─── Placement phase ─── */
-function initPicks(player){
-  picks[player]={};
-  TARGET_TYPES.forEach(tt=>{ picks[player][tt.id]=tt.quota; });
-  selectedType=TARGET_TYPES[0];
-}
+    if(rem>0){btn.addEventListener('click',()=>{selectedType=tt;buildPicker(player);});}
+    pickerBtns.appendChild(btn);});}
 
 function startPlacement(player){
-  placingPlayer=player;
-  phase='place';
-  targets[player]=[];
-  initPicks(player);
+  placingPlayer=player;phase='place';ships[player]=[];initPicks(player);
+  // clear own panel marks
+  panel(player).querySelectorAll('.mk').forEach(d=>d.remove());
+  panel(player).classList.remove('no-click');panel(player).classList.add('can-click');
+  rivalPanel(player).classList.add('no-click');rivalPanel(player).classList.remove('can-click');
+  picker.classList.remove('hide');buildPicker(player);
+  phaseMsg.innerHTML=`<b style="color:${ch(player)}">J${player}</b> — despliega tus naves`;}
 
-  const ownPanel=player===1?pTop:pBot;
-  const rivPanel=player===1?pBot:pTop;
+pTop.addEventListener('click',e=>{if(phase==='place'&&placingPlayer===1)handlePlaceClick(e,1);});
+pBot.addEventListener('click',e=>{if(phase==='place'&&placingPlayer===2)handlePlaceClick(e,2);});
 
-  clearMarks(ownPanel);
-  ownPanel.classList.remove('no-click');ownPanel.classList.add('can-click');
-  rivPanel.classList.add('no-click');rivPanel.classList.remove('can-click');
-
-  picker.classList.remove('hide');
-  buildPicker(player);
-  phaseMsg.innerHTML=`<b style="color:${c(player)}">J${player}</b> — despliega tus objetivos`;
-  updatePlacementCount(player);
-}
-
-function updatePlacementCount(player){
-  const placed=targets[player].length;
-  const rem=TOTAL_TARGETS-placed;
-  if(rem>0){
-    phaseMsg.innerHTML=`<b style="color:${c(player)}">J${player}</b> — despliega objetivos · ${rem} restantes`;
-  }
-}
-
-function placementDone(player){
-  // show handoff veil on rival panel side so they don't see rival targets
-  const rivPanel=player===1?pBot:pTop;
-  const ownPanel=player===1?pTop:pBot;
-  ownPanel.classList.add('no-click');ownPanel.classList.remove('can-click');
-  picker.classList.add('hide');
-
-  if(player===1){
-    // show veil on TOP (J1's panel) so J2 can't see while we hand off
-    hvMsg.textContent='Pasar a J2';
-    hvSub.textContent='Cubre la pantalla y pasa el dispositivo al Jugador 2 para que despliegue sus objetivos';
-    hvBtn.textContent='J2 listo';
-    hvBtn.style.background=hex(2);hvBtn.style.color='#000';
-    hv.classList.remove('hide');hv.classList.add('show');
-    hvBtn.onclick=()=>{
-      hv.classList.remove('show');hv.classList.add('hide');
-      startPlacement(2);
-    };
-  } else {
-    // both placed → start game
-    hv.classList.remove('show');hv.classList.add('hide');
-    startGame();
-  }
-}
-
-/* click to place */
-pTop.addEventListener('click',e=>{
-  if(phase!=='place'||placingPlayer!==1)return;
-  handlePlaceClick(e,1,pTop);
-});
-pBot.addEventListener('click',e=>{
-  if(phase!=='place'||placingPlayer!==2)return;
-  handlePlaceClick(e,2,pBot);
-});
-
-function handlePlaceClick(e,player,panel){
+function handlePlaceClick(e,player){
   if(picks[player][selectedType.id]<=0){
-    // auto-select first available
-    const avail=TARGET_TYPES.find(tt=>picks[player][tt.id]>0);
-    if(!avail)return;
-    selectedType=avail;buildPicker(player);
-  }
-  const r=panel.getBoundingClientRect();
+    const avail=SHIP_TYPES.find(t=>picks[player][t.id]>0);if(!avail)return;
+    selectedType=avail;buildPicker(player);}
+  const r=panel(player).getBoundingClientRect();
   const fx=Math.min(1,Math.max(0,(e.clientX-r.left)/r.width));
   const fy=Math.min(1,Math.max(0,(e.clientY-r.top)/r.height));
   const tt=selectedType;
-  targets[player].push({type:tt,fx,fy,hit:false});
+  const ship={type:tt,fx,fy,hp:tt.hp,id:ships[player].length,wrap:null};
+  ships[player].push(ship);
   picks[player][tt.id]--;
-  // draw on panel
-  const svgEl=tt.draw(hex(player));
-  placeMark(panel,fx,fy,svgEl,'tgt');
-  // if none left of this type, pick next
-  if(picks[player][tt.id]===0){
-    const avail=TARGET_TYPES.find(t=>picks[player][t.id]>0);
-    if(avail)selectedType=avail;
-  }
+  // draw
+  const wrap=createShipEl(ship,hex(player));
+  panel(player).appendChild(wrap);
+  positionShipEl(wrap,panel(player),fx,fy);
+  ship.wrap=wrap;
+  // next available type
+  if(picks[player][tt.id]===0){const avail=SHIP_TYPES.find(t=>picks[player][t.id]>0);if(avail)selectedType=avail;}
   buildPicker(player);
-  updatePlacementCount(player);
-  // check done
-  const allZero=TARGET_TYPES.every(tt=>picks[player][tt.id]===0);
-  if(allZero) setTimeout(()=>placementDone(player),150);
-}
+  const placed=ships[player].length, rem=TOTAL_SHIPS-placed;
+  phaseMsg.innerHTML=rem>0?`<b style="color:${ch(player)}">J${player}</b> — ${rem} nave${rem!==1?'s':''} restante${rem!==1?'s':''}`:`<b style="color:${ch(player)}">J${player}</b> — listo`;
+  if(SHIP_TYPES.every(t=>picks[player][t.id]===0))setTimeout(()=>placementDone(player),200);}
 
-/* ═══ GAME PHASE ═══ */
+function placementDone(player){
+  panel(player).classList.add('no-click');panel(player).classList.remove('can-click');
+  picker.classList.add('hide');
+  if(player===1){
+    hvMsg.textContent='Pasar a J2';
+    hvSub.textContent='Cubre la pantalla y pasa el dispositivo al Jugador 2';
+    hvBtn.textContent='J2 listo';hvBtn.style.background=hex(2);hvBtn.style.color='#000';
+    hv.classList.remove('hide');hv.classList.add('show');
+    hvBtn.onclick=()=>{hv.classList.remove('show');hv.classList.add('hide');startPlacement(2);};
+  } else {
+    hv.classList.remove('show');hv.classList.add('hide');startGame();}}
+
+/* ══════════════ GAME ══════════════ */
 function startGame(){
-  phase='game';
-  history=[];
-  score={1:0,2:0};
+  phase='game';history=[];score={1:0,2:0};
+  // Remove placement shot/impact marks only
+  [1,2].forEach(p=>{panel(p).querySelectorAll('.shot-mk,.impact-mk').forEach(d=>d.remove());});
+  // Hide all ships — renderGamePanels will show/hide correctly per turn
+  [1,2].forEach(p=>ships[p].forEach(s=>{ if(s.wrap) s.wrap.style.display='none'; }));
   remaining={
-    1:Array.from({length:TOTAL_TARGETS},(_,i)=>i), // J1 needs to hit all of J2's targets
-    2:Array.from({length:TOTAL_TARGETS},(_,i)=>i),
-  };
+    1:ships[2].map((_,i)=>i).filter(i=>ships[2][i].hp>0),
+    2:ships[1].map((_,i)=>i).filter(i=>ships[1][i].hp>0)};
   buildPips();refreshScores();
-  // random first player
   currentPlayer=Math.random()<.5?1:2;
   picker.classList.add('hide');
-  renderGame();
-  showTurnToast(currentPlayer,true);
-}
+  renderGamePanels();
+  showToast(`J${currentPlayer}`,null,'🎲 Primer turno aleatorio',1800);}
 
-function renderGame(){
-  /*
-   FIXED panels (never swap):
-     pTop = J1's own field. J1 fires here. J2's impacts land here.
-     pBot = J2's own field. J2 fires here. J1's impacts land here.
+/* render: show both panels from current player's POV
+   OWN panel  → hide own ships, show only shot marks
+   RIVAL panel → show rival ships + impact marks (no shot marks)
+*/
+function renderGamePanels(){
+  const cp=currentPlayer, riv=cp===1?2:1;
+  const ownP=panel(cp), rivP=rivalPanel(cp);
 
-   J1 fires at (gfx, gfy) in pTop:
-     · shot mark  → pTop at (gfx, gfy)
-     · impact     → pBot at (gfx, 1-gfy)   ← mirrored across dividing line
-     · targets[2] are shown in pTop mirrored: (tfx, 1-tfy) so J1 can aim
+  // Remove all transient marks from both panels
+  ownP.querySelectorAll('.shot-mk,.impact-mk').forEach(d=>d.remove());
+  rivP.querySelectorAll('.shot-mk,.impact-mk').forEach(d=>d.remove());
 
-   J2 fires at (gfx, gfy) in pBot:
-     · shot mark  → pBot at (gfx, gfy)
-     · impact     → pTop at (gfx, 1-gfy)
-     · targets[1] are shown in pBot mirrored: (tfx, 1-tfy) so J2 can aim
-  */
-  const cp=currentPlayer;
-  clearMarks(pTop); clearMarks(pBot);
+  // Hide ALL ships first, then selectively show rival ships in rival panel
+  ships[1].forEach(s=>{ if(s.wrap) s.wrap.style.display='none'; });
+  ships[2].forEach(s=>{ if(s.wrap) s.wrap.style.display='none'; });
 
-  // ── pTop: J1's field ─────────────────────────────────────
-  // J1's own targets (very dim background reference)
-  targets[1].forEach(tgt=>{
-    placeMark(pTop,tgt.fx,tgt.fy,tgt.type.draw(hex(1),.08),'tgt-own');
-  });
-  // J2's targets shown mirrored in pTop so J1 can see where to aim
-  targets[2].forEach((tgt,i)=>{
-    const wasHit=history.some(h=>h.player===1&&h.targetIdx===i&&h.hit);
-    if(wasHit) return; // hide once hit
-    const isRem=remaining[1].includes(i);
-    if(!isRem) return;
-    const isNext=cp===1&&remaining[1][0]===i;
-    const alpha=isNext?1:.35;
-    const svgEl=tgt.type.draw(hex(2),alpha);
-    if(isNext) svgEl.style.filter=`drop-shadow(0 0 5px ${hex(2)})`;
-    placeMark(pTop,tgt.fx,mirrorFy(tgt.fy),svgEl,'tgt-ref'+(isNext?' tgt-next':''));
-  });
-  // J1's shot marks (J1 fires in pTop at recorded coords)
-  history.filter(h=>h.player===1).forEach(h=>{
-    placeMark(pTop,h.gfx,h.gfy,drawShot(hex(1),h.hit),'shot-own');
-  });
-  // J2's impacts land in pTop mirrored: J2 fired at (gfx,gfy) in pBot → (gfx,1-gfy) in pTop
-  history.filter(h=>h.player===2).forEach(h=>{
-    placeMark(pTop,h.gfx,mirrorFy(h.gfy),drawImpact(hex(2),h.hit),'impact-riv');
-  });
+  // ── OWN PANEL: no ships, show shot history + received impacts ──
+  history.filter(h=>h.player===cp).forEach(h=>{
+    const r=ownP.getBoundingClientRect();
+    const mk=document.createElement('div');mk.className='mk shot-mk';
+    mk.style.left=(h.gfx*r.width)+'px';mk.style.top=(h.gfy*r.height)+'px';
+    mk.appendChild(drawShotSVG(hex(cp),h.hit));ownP.appendChild(mk);});
+  history.filter(h=>h.player===riv).forEach(h=>{
+    const r=ownP.getBoundingClientRect();
+    const mx=h.gfx*r.width, my=mirrorFy(h.gfy)*r.height;
+    const mk=document.createElement('div');mk.className='mk impact-mk';
+    mk.style.left=mx+'px';mk.style.top=my+'px';
+    mk.appendChild(drawImpactSVG(hex(riv),h.hit));ownP.appendChild(mk);});
 
-  // ── pBot: J2's field ─────────────────────────────────────
-  // J2's own targets (very dim)
-  targets[2].forEach(tgt=>{
-    placeMark(pBot,tgt.fx,tgt.fy,tgt.type.draw(hex(2),.08),'tgt-own');
-  });
-  // J1's targets shown mirrored in pBot so J2 can see where to aim
-  targets[1].forEach((tgt,i)=>{
-    const wasHit=history.some(h=>h.player===2&&h.targetIdx===i&&h.hit);
-    if(wasHit) return;
-    const isRem=remaining[2].includes(i);
-    if(!isRem) return;
-    const isNext=cp===2&&remaining[2][0]===i;
-    const alpha=isNext?1:.35;
-    const svgEl=tgt.type.draw(hex(1),alpha);
-    if(isNext) svgEl.style.filter=`drop-shadow(0 0 5px ${hex(1)})`;
-    placeMark(pBot,tgt.fx,mirrorFy(tgt.fy),svgEl,'tgt-ref'+(isNext?' tgt-next':''));
-  });
-  // J2's shot marks (J2 fires in pBot at recorded coords)
-  history.filter(h=>h.player===2).forEach(h=>{
-    placeMark(pBot,h.gfx,h.gfy,drawShot(hex(2),h.hit),'shot-own');
-  });
-  // J1's impacts land in pBot mirrored: J1 fired at (gfx,gfy) in pTop → (gfx,1-gfy) in pBot
-  history.filter(h=>h.player===1).forEach(h=>{
-    placeMark(pBot,h.gfx,mirrorFy(h.gfy),drawImpact(hex(1),h.hit),'impact-riv');
-  });
+  // ── RIVAL PANEL: show rival ships + cp's impact marks ──
+  ships[riv].forEach(s=>{ if(s.wrap) s.wrap.style.display=''; });
+  history.filter(h=>h.player===cp).forEach(h=>{
+    const mk=document.createElement('div');mk.className='mk impact-mk';
+    mk.style.left=h.mirrorX+'px';mk.style.top=h.mirrorY+'px';
+    mk.appendChild(drawImpactSVG(hex(cp),h.hit));rivP.appendChild(mk);});
 
-  // ── pointer-events ────────────────────────────────────────
-  if(cp===1){
-    pTop.classList.remove('no-click');pTop.classList.add('can-click');
-    pBot.classList.add('no-click');pBot.classList.remove('can-click');
-  } else {
-    pBot.classList.remove('no-click');pBot.classList.add('can-click');
-    pTop.classList.add('no-click');pTop.classList.remove('can-click');
-  }
+  // Enable own panel for shooting, disable rival panel
+  ownP.classList.remove('no-click');ownP.classList.add('can-click');
+  rivP.classList.add('no-click');rivP.classList.remove('can-click');
 
   const nextIdx=remaining[cp][0];
-  const rivTargets=cp===1?targets[2]:targets[1];
-  const nextTgt=nextIdx!==undefined?rivTargets[nextIdx]:null;
-  phaseMsg.innerHTML=`<b style="color:${c(cp)}">J${cp}</b> — espeja objetivo <b>${nextIdx!==undefined?nextIdx+1:'—'}</b>${nextTgt?' ('+nextTgt.type.label+')':''}`;
+  const nextShip=nextIdx!==undefined?ships[riv][nextIdx]:null;
+  phaseMsg.innerHTML=nextShip
+    ?`<b style="color:${ch(cp)}">J${cp}</b> — apunta a <b>${nextShip.type.label}</b> nº${nextIdx+1} · HP ${nextShip.hp}/${nextShip.type.hp}`
+    :`<b style="color:${ch(cp)}">J${cp}</b>`;
   refreshPips();
 }
 
 /* click to fire */
-pTop.addEventListener('click',e=>{if(phase==='game'&&currentPlayer===1)handleFire(e,1,pTop);});
-pBot.addEventListener('click',e=>{if(phase==='game'&&currentPlayer===2)handleFire(e,2,pBot);});
+pTop.addEventListener('click',e=>{if(phase==='game'&&currentPlayer===1)handleFire(e,1);});
+pBot.addEventListener('click',e=>{if(phase==='game'&&currentPlayer===2)handleFire(e,2);});
 
-function handleFire(e,player,panel){
-  const rem=remaining[player];
-  if(!rem.length)return;
-  const r=panel.getBoundingClientRect();
+function handleFire(e,player){
+  const rem=remaining[player];if(!rem.length)return;
+  const ownP=panel(player);
+  const r=ownP.getBoundingClientRect();
   const gfx=Math.min(1,Math.max(0,(e.clientX-r.left)/r.width));
   const gfy=Math.min(1,Math.max(0,(e.clientY-r.top)/r.height));
+  const rivShips=ships[player===1?2:1];
+  let bestHit=null, bestDist=Infinity;
+  rem.forEach(idx=>{
+    const ship=rivShips[idx];
+    const res=hitCheck(gfx,gfy,ship,player);
+    if(res.hit&&res.pxDist<bestDist){bestDist=res.pxDist;bestHit={idx,ship,res};}
+  });
+  let hitResult=bestHit;
+  // error % vs current target for display
   const targetIdx=rem[0];
-  const tgt=targets[player===1?2:1][targetIdx];
-  const d=dist(gfx,gfy,tgt.fx,tgt.fy);
-  const hit=d<tgt.type.hitPct;
-  history.push({player,targetIdx,gfx,gfy,error:d,hit});
-  if(hit){remaining[player].shift();score[player]++;targets[player===1?2:1][targetIdx].hit=true;}
+  const targetShip=rivShips[targetIdx];
+  const targetRes=hitCheck(gfx,gfy,targetShip,player);
+  const displayErr=targetRes.errPct;
+
+  const isHit=hitResult!==null;
+  // mirror position in rival panel (absolute px)
+  const rivR=rivalPanel(player).getBoundingClientRect();
+  const mirrorX=gfx*rivR.width, mirrorY=mirrorFy(gfy)*rivR.height;
+  const entry={player,gfx,gfy,hit:isHit,errPct:displayErr,mirrorX,mirrorY,
+    hitShipIdx:isHit?hitResult.idx:null};
+  history.push(entry);
+
+  if(isHit){
+    const ship=hitResult.ship;
+    ship.hp--;
+    const shipOwner=player===1?2:1;
+    redrawShipSVG(ship,hex(shipOwner));
+    miniExplosion(rivalPanel(player),mirrorX,mirrorY,hex(player));
+    if(ship.hp<=0){
+      remaining[player]=remaining[player].filter(i=>i!==hitResult.idx);
+      score[player]++;
+    } else {
+      if(ship.type.canMove){dodgeShip(ship,shipOwner);}
+    }
+  }
   refreshScores();
-  renderGame();
-  // block while toast shows briefly
+
+  // Re-render immediately so impact/explosion is visible
+  renderGamePanels();
+  // Block clicks while toast shows
   pTop.classList.add('no-click');pTop.classList.remove('can-click');
   pBot.classList.add('no-click');pBot.classList.remove('can-click');
-  showShotToast(d,hit,player);
+
+  const err=displayErr.toFixed(1)+'%';
+  const cls=displayErr<5?'perfect':displayErr<12?'good':displayErr<22?'ok':'bad';
+  if(isHit){
+    const sunk=hitResult.ship.hp<=0;
+    showToast(err,cls,sunk?`💥 Hundida · J${player} continúa`:`🔥 Impacto · J${player} continúa`,1500);
+  } else {
+    showToast(err,cls,`❌ Fallo · turno J${player===1?2:1}`,1500);
+  }
+  setTimeout(()=>afterShot(isHit,player),1600);
 }
 
-function showShotToast(d,hit,player){
-  const cls=d<3?'perfect':d<8?'good':d<18?'ok':'bad';
-  toastErr.textContent=d.toFixed(1)+'%';
-  toastErr.className=cls;
-  const rival=player===1?2:1;
-  toastMsg.textContent=hit
-    ?`🎯 Impacto · J${player} continúa`
-    :`❌ Fallo · turno J${rival}`;
-  toastEl.classList.add('show');
-  clearTimeout(toastTimer);
-  toastTimer=setTimeout(()=>{
-    toastEl.classList.remove('show');
-    afterShot(hit,player);
-  },1400);
-}
+/* Dodge: move ship a small random amount within its panel */
+function dodgeShip(ship,owner){
+  const p=panel(owner);const r=p.getBoundingClientRect();
+  const hw=ship.type.w/2/r.width, hh=ship.type.h/2/r.height;
+  const dx=(Math.random()-.5)*.15, dy=(Math.random()-.5)*.15;
+  ship.fx=Math.min(1-hw,Math.max(hw,ship.fx+dx));
+  ship.fy=Math.min(1-hh,Math.max(hh,ship.fy+dy));
+  if(ship.wrap){
+    ship.wrap.classList.remove('no-transition');
+    positionShipEl(ship.wrap,p,ship.fx,ship.fy);}}
 
-function showTurnToast(player,first=false){
-  toastErr.textContent=`J${player}`;
-  toastErr.className=''; toastErr.style.color=hex(player);
-  toastMsg.textContent=first?'🎲 Primer turno (aleatorio)':'↔ Cambio de turno';
-  toastEl.classList.add('show');
-  clearTimeout(toastTimer);
-  toastTimer=setTimeout(()=>{ toastEl.classList.remove('show'); },1600);
-}
+/* Mini explosion SVG */
+function miniExplosion(panelEl,x,y,color){
+  const wrap=document.createElement('div');wrap.className='mini-exp';
+  wrap.style.left=x+'px';wrap.style.top=y+'px';
+  const sz=40,svg=mkSVG(sz,sz),cx=sz/2,cy=sz/2;
+  addEl(svg,'circle',{cx,cy,r:sz*.35,stroke:color,'stroke-width':1.5,fill:'none',opacity:.9});
+  for(let i=0;i<8;i++){const a=i*Math.PI/4,r1=sz*.1,r2=sz*.45;
+    addEl(svg,'line',{x1:cx+r1*Math.cos(a),y1:cy+r1*Math.sin(a),x2:cx+r2*Math.cos(a),y2:cy+r2*Math.sin(a),stroke:color,'stroke-width':i%2===0?2:1,opacity:.95});}
+  addEl(svg,'circle',{cx,cy,r:4,fill:'#fff',opacity:1});
+  wrap.appendChild(svg);panelEl.appendChild(wrap);
+  setTimeout(()=>wrap.remove(),600);}
+
+/* Shot / Impact SVGs */
+function drawShotSVG(color,hit){
+  const sz=hit?20:13,cx=sz/2,cy=sz/2,svg=mkSVG(sz,sz);
+  const a=hit?.82:.35,sw=hit?1:.6,r=sz*.3,g=sz*.13;
+  const segs=[[cx-g,cy,r,90,180],[cx,cy-g,r,180,270],[cx+g,cy,r,270,360],[cx,cy+g,r,0,90]];
+  for(const[ox,oy,rr,sa,ea]of segs){const p=ns('path');
+    const s1=sa*Math.PI/180,e1=ea*Math.PI/180;
+    p.setAttribute('d',`M${ox+rr*Math.cos(s1)},${oy+rr*Math.sin(s1)} A${rr},${rr} 0 0,1 ${ox+rr*Math.cos(e1)},${oy+rr*Math.sin(e1)}`);
+    p.setAttribute('stroke',color);p.setAttribute('stroke-width',sw);p.setAttribute('fill','none');p.setAttribute('opacity',a);svg.appendChild(p);}
+  addEl(svg,'circle',{cx,cy,r:hit?1.5:.9,fill:color,opacity:a});return svg;}
+
+function drawImpactSVG(color,hit){
+  const sz=hit?30:16,cx=sz/2,cy=sz/2,svg=mkSVG(sz,sz);
+  if(hit){
+    addEl(svg,'circle',{cx,cy,r:sz*.4,stroke:color,'stroke-width':.9,fill:'none',opacity:.4});
+    for(let i=0;i<8;i++){const a=i*Math.PI/4,r1=sz*.22,r2=sz*.44;
+      addEl(svg,'line',{x1:cx+r1*Math.cos(a),y1:cy+r1*Math.sin(a),x2:cx+r2*Math.cos(a),y2:cy+r2*Math.sin(a),stroke:color,'stroke-width':i%2===0?1.2:.6,opacity:.85});}
+    addEl(svg,'circle',{cx,cy,r:2.5,fill:color,opacity:1});
+  } else {
+    addEl(svg,'circle',{cx,cy,r:sz*.38,stroke:color,'stroke-width':.7,fill:'none',opacity:.28});
+    const d=sz*.24;
+    for(const[dx,dy]of[[1,1],[1,-1]]){
+      addEl(svg,'line',{x1:cx-d*dx,y1:cy-d*dy,x2:cx+d*dx,y2:cy+d*dy,stroke:color,'stroke-width':.8,opacity:.4});}}
+  return svg;}
 
 function afterShot(hit,player){
-  if(remaining[1].length===0&&remaining[2].length===0){showFinal();return;}
+  // Check win condition
+  if(remaining[1].length===0||remaining[2].length===0){setTimeout(showFinal,400);return;}
+
   if(hit){
-    const rem=remaining[player];
-    if(!rem.length){
-      // this player done, switch
-      currentPlayer=currentPlayer===1?2:1;
-      renderGame();showTurnToast(currentPlayer);
-    } else {
-      renderGame();
-    }
+    // Same player continues — re-render (updates phase msg, re-enables panel)
+    renderGamePanels();
   } else {
+    // Miss → hand off to the other player
     currentPlayer=currentPlayer===1?2:1;
-    if(!remaining[currentPlayer].length){showFinal();return;}
-    renderGame();showTurnToast(currentPlayer);
+    if(!remaining[currentPlayer].length){setTimeout(showFinal,400);return;}
+    showHandoff(currentPlayer);
   }
 }
 
-/* ═══ FINAL ═══ */
+function showHandoff(nextPlayer){
+  hvMsg.textContent=`Turno — Jugador ${nextPlayer}`;
+  hvSub.textContent='Pasa el dispositivo al siguiente jugador y toca cuando estés listo';
+  hvBtn.textContent=`J${nextPlayer} listo`;
+  hvBtn.style.background=hex(nextPlayer);hvBtn.style.color='#000';
+  hv.classList.remove('hide');hv.classList.add('show');
+  hvBtn.onclick=()=>{
+    hv.classList.remove('show');hv.classList.add('hide');
+    renderGamePanels();
+  };
+}
+
+/* Toast */
+function showToast(errText,cls,msg,dur){
+  toastErr.textContent=errText;
+  toastErr.className=cls||'';
+  if(!cls)toastErr.style.color=errText.startsWith('J')?hex(parseInt(errText[1])):'var(--text)';
+  else toastErr.style.color='';
+  toastMsg.textContent=msg;
+  toastEl.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>toastEl.classList.remove('show'),dur||1400);}
+
+/* Final */
 function showFinal(){
   phase='done';
-  clearMarks(pTop);clearMarks(pBot);
   pTop.classList.add('no-click');pBot.classList.add('no-click');
-
   const tbl=document.getElementById('fo-table');
-  tbl.innerHTML=`<div class="ftr hdr"><div>#</div><div>J1</div><div>J2</div><div>Punto</div></div>`;
-  let t1=0,t2=0;
-  for(let i=0;i<TOTAL_TARGETS;i++){
-    const h1=history.find(h=>h.player===1&&h.targetIdx===i);
-    const h2=history.find(h=>h.player===2&&h.targetIdx===i);
-    const e1=h1?h1.error:null,e2=h2?h2.error:null;
-    if(e1!==null)t1+=e1;if(e2!==null)t2+=e2;
-    let w='—';
-    if(e1!==null&&e2!==null){
-      if(e1<e2)w='<span class="tag tg1">J1</span>';
-      else if(e2<e1)w='<span class="tag tg2">J2</span>';
-      else w='<span class="tag tgt">—</span>';
-    }
+  tbl.innerHTML=`<div class="ftr hdr"><div>#</div><div>J1</div><div>J2</div><div>Res</div></div>`;
+  let t1=0,t2=0,n1=0,n2=0;
+  for(let i=0;i<TOTAL_SHIPS;i++){
+    const h1=history.filter(h=>h.player===1&&h.hitShipIdx===i);
+    const h2=history.filter(h=>h.player===2&&h.hitShipIdx===i);
+    const s2=ships[2][i],s1=ships[1][i];
+    const sunk1=s2&&s2.hp<=0,sunk2=s1&&s1.hp<=0;
+    let w='—';if(sunk1&&!sunk2)w='<span class="tag tg1">J1</span>';
+    else if(sunk2&&!sunk1)w='<span class="tag tg2">J2</span>';
+    else if(sunk1&&sunk2)w='<span class="tag tgt">X</span>';
+    const e1=h1.length?h1[h1.length-1].errPct:null;
+    const e2=h2.length?h2[h2.length-1].errPct:null;
+    if(e1!==null){t1+=e1;n1++;}if(e2!==null){t2+=e2;n2++;}
     const row=document.createElement('div');row.className='ftr';
     row.innerHTML=`<div class="fen">${i+1}</div><div class="fe1">${e1!==null?e1.toFixed(1)+'%':'—'}</div><div class="fe2">${e2!==null?e2.toFixed(1)+'%':'—'}</div><div class="few">${w}</div>`;
-    tbl.appendChild(row);
-  }
-  const n1=history.filter(h=>h.player===1).length||1;
-  const n2=history.filter(h=>h.player===2).length||1;
-  const a1=t1/n1,a2=t2/n2;
-  document.getElementById('fo-t1v').textContent=`${a1.toFixed(1)}% · ${score[1]} hits`;
-  document.getElementById('fo-t2v').textContent=`${a2.toFixed(1)}% · ${score[2]} hits`;
+    tbl.appendChild(row);}
+  const a1=n1?t1/n1:0,a2=n2?t2/n2:0;
+  document.getElementById('fo-t1v').textContent=`${a1.toFixed(1)}% · ${score[1]} hundidas`;
+  document.getElementById('fo-t2v').textContent=`${a2.toFixed(1)}% · ${score[2]} hundidas`;
   const fw=document.getElementById('fo-winner');
   if(score[1]>score[2]){fw.textContent='🏆 Victoria — Jugador 1';fw.style.color=hex(1);}
   else if(score[2]>score[1]){fw.textContent='🏆 Victoria — Jugador 2';fw.style.color=hex(2);}
   else if(a1<a2){fw.textContent='🏆 J1 gana por precisión';fw.style.color=hex(1);}
   else if(a2<a1){fw.textContent='🏆 J2 gana por precisión';fw.style.color=hex(2);}
   else{fw.textContent='⚔ Empate';fw.style.color='#6aaaf5';}
-  foOverlay.classList.add('show');
-  phaseMsg.innerHTML='Fin de la batalla';
-}
+  foOverlay.classList.add('show');}
 
 document.getElementById('fo-replay').addEventListener('click',()=>{
   foOverlay.classList.remove('show');
-  targets={1:[],2:[]};history=[];score={1:0,2:0};
-  buildPips();refreshScores();
-  startPlacement(1);
-});
+  ships={1:[],2:[]};history=[];score={1:0,2:0};remaining={1:[],2:[]};
+  [pTop,pBot].forEach(p=>p.querySelectorAll('.mk,.mini-exp').forEach(d=>d.remove()));
+  buildPips();refreshScores();startPlacement(1);});
 
-/* ═══ INIT ═══ */
-buildPips();
-startPlacement(1);
+/* INIT */
+buildPips();startPlacement(1);
 </script>
 </body>
 </html>
