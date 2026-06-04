@@ -200,6 +200,7 @@ body{
 .fo-btn:hover{transform:scale(1.04);background:rgba(100,160,255,.18);}
 .tag{font-family:'Exo 2',sans-serif;font-weight:200;font-size:.76rem;letter-spacing:2px;padding:2px 6px;}
 .tg1{background:var(--c1);color:#000;}.tg2{background:var(--c2);color:#000;}.tgt{background:#0d1e35;color:var(--text);}
+</style>
 <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
 <style>
 /* ══════════ LOBBY ══════════ */
@@ -298,6 +299,7 @@ body{
   color:#a8d4ff;
 }
 </style>
+</head>
 <body>
 <!-- LOBBY -->
 <div id="lobby">
@@ -561,10 +563,12 @@ function createShipEl(ship,playerColor){
   wrap.appendChild(svg);
   return wrap;}
 
+function panelW(el){return el.getBoundingClientRect().width||el.offsetWidth||window.innerWidth;}
+function panelH(el){return el.getBoundingClientRect().height||el.offsetHeight||(window.innerHeight/2);}
 function positionShipEl(wrap,panel,fx,fy){
-  const r=panel.getBoundingClientRect();
-  wrap.style.left=(fx*r.width)+'px';
-  wrap.style.top=(fy*r.height)+'px';}
+  const w=panelW(panel),h=panelH(panel);
+  wrap.style.left=(fx*w)+'px';
+  wrap.style.top=(fy*h)+'px';}
 
 function redrawShipSVG(ship,playerColor){
   if(!ship.wrap)return;
@@ -608,16 +612,11 @@ function startPlacement(player){
   document.getElementById('rand-btn').onclick=(e)=>{e.stopPropagation();randomPlacement(player);};}
 
 function startTrainBattle(){
-  // In training, J2's fleet is empty (no one to fight), J1 just practices
-  // Give J2 a ghost fleet so remaining isn't empty — or just start normally
-  // Actually: training = solo, J1 fires at their own panel as target practice
-  // Simpler: auto-populate J2 ships randomly so J1 has targets
   ships[2]=[];
   const p2=panel(2);
+  const pw=panelW(p2), ph=panelH(p2);
   SHIP_TYPES.forEach(tt=>{
     for(let q=0;q<tt.quota;q++){
-      const pw=p2.offsetWidth||window.innerWidth;
-      const ph=p2.offsetHeight||(window.innerHeight/2);
       const hw=tt.w/2/pw+.02,hh=tt.h/2/ph+.02;
       const fx=hw+Math.random()*(1-2*hw);
       const fy=hh+Math.random()*(1-2*hh);
@@ -633,28 +632,28 @@ function startTrainBattle(){
 }
 
 function randomPlacement(player){
-  panel(player).querySelectorAll('.mk').forEach(d=>d.remove());
+  panel(player).querySelectorAll('.mk,.ship-wrap').forEach(d=>d.remove());
   ships[player]=[];initPicks(player);
   const p=panel(player);
-  // Use offsetWidth/Height as fallback when getBoundingClientRect returns 0
-  const pw=p.offsetWidth||window.innerWidth;
-  const ph=p.offsetHeight||(window.innerHeight/2);
-  SHIP_TYPES.forEach(tt=>{
-    for(let q=0;q<tt.quota;q++){
-      const hw=tt.w/2/pw+.02,hh=tt.h/2/ph+.02;
-      const fx=hw+Math.random()*(1-2*hw);
-      const fy=hh+Math.random()*(1-2*hh);
-      const ship={type:tt,fx,fy,hp:tt.hp,id:ships[player].length,wrap:null};
-      ships[player].push(ship);
-      picks[player][tt.id]--;
-      const wrap=createShipEl(ship,hex(player));
-      p.appendChild(wrap);
-      positionShipEl(wrap,p,fx,fy);
-      ship.wrap=wrap;
-    }
+  requestAnimationFrame(()=>{
+    const pw=panelW(p), ph=panelH(p);
+    SHIP_TYPES.forEach(tt=>{
+      for(let q=0;q<tt.quota;q++){
+        const hw=tt.w/2/pw+.02,hh=tt.h/2/ph+.02;
+        const fx=hw+Math.random()*(1-2*hw);
+        const fy=hh+Math.random()*(1-2*hh);
+        const ship={type:tt,fx,fy,hp:tt.hp,id:ships[player].length,wrap:null};
+        ships[player].push(ship);
+        picks[player][tt.id]--;
+        const wrap=createShipEl(ship,hex(player));
+        p.appendChild(wrap);
+        positionShipEl(wrap,p,fx,fy);
+        ship.wrap=wrap;
+      }
+    });
+    buildPicker(player);
+    setTimeout(()=>placementDone(player),300);
   });
-  buildPicker(player);
-  setTimeout(()=>placementDone(player),300);
 }
 
 pTop.addEventListener('click',e=>{if(phase==='place'&&placingPlayer===1)handlePlaceClick(e,1);});
