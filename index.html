@@ -607,15 +607,41 @@ function startPlacement(player){
   document.getElementById('rand-btn').style.color=hex(player);
   document.getElementById('rand-btn').onclick=(e)=>{e.stopPropagation();randomPlacement(player);};}
 
-function randomPlacement(player){
-  // Clear any already-placed ships
-  panel(player).querySelectorAll('.mk').forEach(d=>d.remove());
-  ships[player]=[];initPicks(player);
-  const p=panel(player);const r=p.getBoundingClientRect();
-  // Place each ship type quota times with random position
+function startTrainBattle(){
+  // In training, J2's fleet is empty (no one to fight), J1 just practices
+  // Give J2 a ghost fleet so remaining isn't empty — or just start normally
+  // Actually: training = solo, J1 fires at their own panel as target practice
+  // Simpler: auto-populate J2 ships randomly so J1 has targets
+  ships[2]=[];
+  const p2=panel(2);
   SHIP_TYPES.forEach(tt=>{
     for(let q=0;q<tt.quota;q++){
-      const hw=tt.w/2/r.width+.02, hh=tt.h/2/r.height+.02;
+      const pw=p2.offsetWidth||window.innerWidth;
+      const ph=p2.offsetHeight||(window.innerHeight/2);
+      const hw=tt.w/2/pw+.02,hh=tt.h/2/ph+.02;
+      const fx=hw+Math.random()*(1-2*hw);
+      const fy=hh+Math.random()*(1-2*hh);
+      const ship={type:tt,fx,fy,hp:tt.hp,id:ships[2].length,wrap:null};
+      ships[2].push(ship);
+      const wrap=createShipEl(ship,hex(2));
+      p2.appendChild(wrap);
+      positionShipEl(wrap,p2,fx,fy);
+      ship.wrap=wrap;
+    }
+  });
+  startGame();
+}
+
+function randomPlacement(player){
+  panel(player).querySelectorAll('.mk').forEach(d=>d.remove());
+  ships[player]=[];initPicks(player);
+  const p=panel(player);
+  // Use offsetWidth/Height as fallback when getBoundingClientRect returns 0
+  const pw=p.offsetWidth||window.innerWidth;
+  const ph=p.offsetHeight||(window.innerHeight/2);
+  SHIP_TYPES.forEach(tt=>{
+    for(let q=0;q<tt.quota;q++){
+      const hw=tt.w/2/pw+.02,hh=tt.h/2/ph+.02;
       const fx=hw+Math.random()*(1-2*hw);
       const fy=hh+Math.random()*(1-2*hh);
       const ship={type:tt,fx,fy,hp:tt.hp,id:ships[player].length,wrap:null};
@@ -628,7 +654,6 @@ function randomPlacement(player){
     }
   });
   buildPicker(player);
-  phaseMsg.innerHTML=`<b style="color:${ch(player)}">J${player}</b> — listo (aleatorio)`;
   setTimeout(()=>placementDone(player),300);
 }
 
@@ -673,10 +698,25 @@ function showPlayerLabel(player, callback){
 function placementDone(player){
   panel(player).classList.add('no-click');panel(player).classList.remove('can-click');
   picker.classList.add('hide');
-  if(player===1){
-    showPlayerLabel(2,()=>startPlacement(2));
+  if(gameMode==='online'){
+    // online mode handles its own flow
+    const shipData=ships[myOnlinePlayer].map(s=>({
+      typeId:s.type.id,fx:s.fx,fy:s.fy,hp:s.type.hp,id:s.id
+    }));
+    sendMsg({type:'ships_ready',ships:shipData,player:myOnlinePlayer});
+    onlineReady[myOnlinePlayer]=true;
+    showToast('','','⏳ Esperando rival…',5000);
+    rivalPanel(myOnlinePlayer).style.opacity='1';
+  } else if(gameMode==='train'){
+    // solo: place ships for player 1 only, then start game with just J1 fleet
+    startTrainBattle();
   } else {
-    startGame();
+    // local: J1 done → show J2 label then J2 places
+    if(player===1){
+      showPlayerLabel(2,()=>startPlacement(2));
+    } else {
+      startGame();
+    }
   }
 }
 
@@ -1131,31 +1171,7 @@ function showOnlineLayout(){
   rivalPanel(myOnlinePlayer).style.pointerEvents='none';
 }
 
-// Override placementDone for online
-const _origPlacementDone=window.placementDone;
-function placementDone(player){
-  if(gameMode==='online'){
-    // Serialize ships and send to peer
-    panel(player).classList.add('no-click');panel(player).classList.remove('can-click');
-    picker.classList.add('hide');
-    const shipData=ships[myOnlinePlayer].map(s=>({
-      typeId:s.type.id, fx:s.fx, fy:s.fy, hp:s.type.hp, id:s.id
-    }));
-    sendMsg({type:'ships_ready', ships:shipData, player:myOnlinePlayer});
-    onlineReady[myOnlinePlayer]=true;
-    showToast('','','⏳ Esperando rival…',5000);
-    rivalPanel(myOnlinePlayer).style.opacity='1';
-  } else {
-    // Local/training behaviour
-    panel(player).classList.add('no-click');panel(player).classList.remove('can-click');
-    picker.classList.add('hide');
-    if(player===1){
-      showPlayerLabel(2,()=>startPlacement(2));
-    } else {
-      startGame();
-    }
-  }
-}
+// Online placement done is handled inside placementDone() via gameMode check
 
 function onMsgReceived(raw){
   let msg;try{msg=JSON.parse(raw);}catch{return;}
