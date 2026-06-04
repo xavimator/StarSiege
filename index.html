@@ -68,6 +68,8 @@ body{
 .pip.cur1{background:var(--c1);box-shadow:0 0 4px var(--c1)99;}
 .pip.cur2{background:var(--c2);box-shadow:0 0 4px var(--c2)99;}
 
+#game-shell{display:none;flex-direction:column;flex:1;overflow:hidden;}
+#game-shell.show{display:flex;}
 /* ARENA */
 #arena{position:relative;z-index:5;display:flex;flex-direction:column;flex:1;overflow:hidden;}
 .panel{flex:1;position:relative;overflow:hidden;touch-action:manipulation;}
@@ -156,7 +158,7 @@ body{
 #handoff-veil.hide{opacity:0;pointer-events:none;}
 #hv-msg{
   font-family:'Exo 2',sans-serif;font-weight:100;font-style:italic;
-  font-size:clamp(2.4rem,10vw,4rem);letter-spacing:8px;
+  font-size:clamp(1.2rem,5vw,2rem);letter-spacing:5px;
   text-transform:uppercase;
   color:transparent;
   -webkit-text-stroke:1.5px currentColor;
@@ -198,15 +200,137 @@ body{
 .fo-btn:hover{transform:scale(1.04);background:rgba(100,160,255,.18);}
 .tag{font-family:'Exo 2',sans-serif;font-weight:200;font-size:.76rem;letter-spacing:2px;padding:2px 6px;}
 .tg1{background:var(--c1);color:#000;}.tg2{background:var(--c2);color:#000;}.tgt{background:#0d1e35;color:var(--text);}
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<style>
+/* ══════════ LOBBY ══════════ */
+#lobby{
+  position:fixed;inset:0;z-index:200;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:18px;padding:28px 20px;
+  background:rgba(1,9,21,.97);backdrop-filter:blur(10px);
+}
+#lobby.hide{display:none;}
+#lobby-title{
+  font-family:'Exo 2',sans-serif;font-weight:100;font-style:italic;
+  font-size:clamp(1.8rem,7vw,2.8rem);letter-spacing:8px;
+  color:#a8d4ff;text-transform:uppercase;
+  text-shadow:0 0 24px rgba(80,140,255,.4);
+}
+.lobby-field{display:flex;flex-direction:column;gap:5px;width:100%;max-width:320px;}
+.lobby-lbl{
+  font-family:'Exo 2',sans-serif;font-weight:200;font-size:.65rem;
+  letter-spacing:3px;color:var(--muted);text-transform:uppercase;
+}
+.lobby-input{
+  font-family:'Exo 2',sans-serif;font-weight:200;font-size:1rem;
+  letter-spacing:2px;padding:8px 12px;
+  background:rgba(255,255,255,.04);border:1px solid rgba(80,130,220,.25);
+  color:var(--text);outline:none;border-radius:2px;
+}
+.lobby-input:focus{border-color:rgba(168,212,255,.5);}
+.lobby-modes{display:flex;gap:8px;width:100%;max-width:320px;}
+.mode-btn{
+  flex:1;padding:10px 8px;
+  font-family:'Exo 2',sans-serif;font-weight:200;font-size:.7rem;letter-spacing:3px;
+  text-transform:uppercase;border:1px solid rgba(80,130,220,.2);
+  background:rgba(255,255,255,.03);color:var(--muted);cursor:pointer;
+  border-radius:2px;transition:all .15s;
+}
+.mode-btn.active{
+  background:rgba(168,212,255,.08);border-color:rgba(168,212,255,.4);
+  color:#a8d4ff;
+}
+.lobby-btn{
+  font-family:'Exo 2',sans-serif;font-weight:200;font-size:.85rem;letter-spacing:4px;
+  padding:11px 28px;border:none;cursor:pointer;text-transform:uppercase;
+  transition:transform .1s,opacity .15s;width:100%;max-width:320px;
+}
+.lobby-btn:active{transform:scale(.97);}
+.lobby-btn:disabled{opacity:.35;cursor:default;}
+#lobby-status{
+  font-family:'Rajdhani',sans-serif;font-weight:300;font-size:.88rem;
+  letter-spacing:2px;color:var(--muted);text-transform:uppercase;
+  text-align:center;min-height:1.2em;
+}
+#lobby-url-box{
+  display:none;flex-direction:column;gap:6px;width:100%;max-width:320px;
+}
+#lobby-url-box.show{display:flex;}
+#lobby-url{
+  font-family:'Exo 2',sans-serif;font-weight:200;font-size:.6rem;
+  letter-spacing:1px;padding:6px 10px;word-break:break-all;
+  background:rgba(168,212,255,.06);border:1px solid rgba(168,212,255,.15);
+  color:#a8d4ff;border-radius:2px;text-align:center;
+}
+#lobby-copy{
+  font-family:'Exo 2',sans-serif;font-weight:200;font-size:.6rem;
+  letter-spacing:3px;padding:5px;border:1px solid rgba(168,212,255,.2);
+  background:transparent;color:#a8d4ff;cursor:pointer;text-transform:uppercase;
+  border-radius:2px;
+}
+/* INVASION ALERT */
+#invasion-alert{
+  position:fixed;inset:0;z-index:180;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:14px;pointer-events:none;opacity:0;
+  transition:opacity .4s;
+}
+#invasion-alert.show{opacity:1;}
+#invasion-title{
+  font-family:'Exo 2',sans-serif;font-weight:100;font-style:italic;
+  font-size:clamp(1.1rem,4vw,1.8rem);letter-spacing:5px;
+  color:#ff4444;text-transform:uppercase;
+  text-shadow:0 0 20px rgba(255,68,68,.6);
+  animation:pulse-red 1s ease-in-out infinite;
+}
+@keyframes pulse-red{
+  0%,100%{text-shadow:0 0 20px rgba(255,68,68,.6);}
+  50%{text-shadow:0 0 40px rgba(255,68,68,1),0 0 60px rgba(255,68,68,.4);}
+}
+#invasion-countdown{
+  font-family:'Exo 2',sans-serif;font-weight:100;
+  font-size:clamp(2.5rem,12vw,5rem);letter-spacing:4px;
+  color:#a8d4ff;
+}
 </style>
-</head>
 <body>
+<!-- LOBBY -->
+<div id="lobby">
+  <div id="lobby-title">Star Siege</div>
+  <div class="lobby-field">
+    <div class="lobby-lbl">Nombre del comandante</div>
+    <input class="lobby-input" id="lobby-name" placeholder="Tu nombre" maxlength="16" autocomplete="off"/>
+  </div>
+  <div class="lobby-field">
+    <div class="lobby-lbl">Modo</div>
+    <div class="lobby-modes">
+      <button class="mode-btn active" id="mode-local">⚔ Local</button>
+      <button class="mode-btn" id="mode-train">🛸 Entrenamiento</button>
+      <button class="mode-btn" id="mode-battle">🌐 Batalla online</button>
+    </div>
+  </div>
+  <div id="lobby-url-box">
+    <div id="lobby-url">—</div>
+    <button id="lobby-copy">📋 Copiar enlace</button>
+  </div>
+  <div id="lobby-status"></div>
+  <button class="lobby-btn" id="lobby-start" style="background:rgba(168,212,255,.1);color:#a8d4ff;border:1px solid rgba(168,212,255,.2);">
+    Comenzar
+  </button>
+</div>
+
+<!-- INVASION ALERT (training mode) -->
+<div id="invasion-alert">
+  <div id="invasion-title">⚠ Our siege is under attack!</div>
+  <div id="invasion-countdown">3</div>
+</div>
+
+
 <canvas id="starfield"></canvas>
 <div id="nebula"></div>
+<div id="game-shell">
 <div id="topbar">
   <div id="game-title">Star Siege</div>
-  
-  
   <div id="scores">
     <div class="sb" id="sb1"><span class="sb-lbl">J1</span><span class="sb-val">0</span></div>
     <div id="turn-bar"></div>
@@ -217,11 +341,12 @@ body{
   <div class="panel no-click" id="panel-top"><div class="ptag">Jugador 1</div></div>
   <div class="panel no-click" id="panel-bot"><div class="ptag">Jugador 2</div></div>
 </div>
+<div id="picker"><div id="picker-msg"></div><div id="picker-btns"></div><button id="rand-btn">⚄ Aleatorio</button></div>
+</div><!-- /game-shell -->
 <div id="handoff-veil" class="hide">
   <div id="hv-msg"></div>
   <button id="hv-btn"></button>
 </div>
-<div id="picker"><div id="picker-msg"></div><div id="picker-btns"></div><button id="rand-btn">⚄ Aleatorio</button></div>
 <div id="toast"><div id="toast-err">—</div><div id="toast-msg">—</div></div>
 <div id="phase-msg" style="display:none"></div>
 <div id="pips-row" style="display:none"><div class="pg" id="pg1"></div><div class="pg" id="pg2"></div></div>
@@ -528,17 +653,27 @@ function handlePlaceClick(e,player){
   phaseMsg.innerHTML=rem>0?`<b style="color:${ch(player)}">J${player}</b> — ${rem} nave${rem!==1?'s':''} restante${rem!==1?'s':''}`:`<b style="color:${ch(player)}">J${player}</b> — listo`;
   if(SHIP_TYPES.every(t=>picks[player][t.id]===0))setTimeout(()=>placementDone(player),200);}
 
+function showPlayerLabel(player, callback){
+  const targetPanel=panel(player);
+  targetPanel.appendChild(hv);
+  hvMsg.textContent=`Jugador ${player}`;
+  hvMsg.style.color=hex(player);
+  hv.classList.remove('hide');hv.classList.add('show');
+  setTimeout(()=>{
+    hv.classList.remove('show');hv.classList.add('hide');
+    setTimeout(callback,250);
+  },1000);
+}
+
 function placementDone(player){
   panel(player).classList.add('no-click');panel(player).classList.remove('can-click');
   picker.classList.add('hide');
   if(player===1){
-    panel(1).appendChild(hv);
-    hvMsg.textContent='Jugador 2';
-    hvMsg.style.color=hex(2);
-    hv.classList.remove('hide');hv.classList.add('show');
-    hvBtn.onclick=(e)=>{e.stopPropagation();hv.classList.remove('show');hv.classList.add('hide');startPlacement(2);};
+    showPlayerLabel(2,()=>startPlacement(2));
   } else {
-    hv.classList.remove('show');hv.classList.add('hide');startGame();}}
+    startGame();
+  }
+}
 
 /* ══════════════ GAME ══════════════ */
 let firingLocked=false; // guard against stray clicks after handoff
@@ -737,16 +872,10 @@ function afterShot(hit,player){
 
 function showHandoff(nextPlayer){
   firingLocked=true;
-  const targetPanel=panel(nextPlayer);
-  targetPanel.appendChild(hv);
-  hvMsg.textContent=`Jugador ${nextPlayer}`;
-  hvMsg.style.color=hex(nextPlayer);
-  hv.classList.remove('hide');hv.classList.add('show');
-  setTimeout(()=>{
-    hv.classList.remove('show');hv.classList.add('hide');
+  showPlayerLabel(nextPlayer,()=>{
     renderGamePanels();
     setTimeout(()=>{ firingLocked=false; },300);
-  },1000);
+  });
 }
 
 /* Toast */
@@ -795,11 +924,430 @@ function showFinal(){
 document.getElementById('fo-replay').addEventListener('click',()=>{
   foOverlay.classList.remove('show');
   ships={1:[],2:[]};history=[];score={1:0,2:0};remaining={1:[],2:[]};
+  gameMode='local';myOnlinePlayer=1;onlineReady={1:false,2:false};
+  if(peer){peer.destroy();peer=null;conn=null;}
   [pTop,pBot].forEach(p=>p.querySelectorAll('.mk,.mini-exp').forEach(d=>d.remove()));
-  buildPips();refreshScores();startPlacement(1);});
+  [pTop,pBot].forEach(p=>{p.style.opacity='';p.style.pointerEvents='';});
+  buildPips();refreshScores();
+  document.getElementById('game-shell').classList.remove('show');
+  lobbyStart.disabled=false;lobbyStart.textContent='Comenzar';
+  lobbyStatus.textContent='';lobbyUrlBox.classList.remove('show');
+  document.querySelectorAll('.mode-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('mode-local').classList.add('active');
+  lobbyEl.classList.remove('hide');
+});
 
-/* INIT */
-buildPips();startPlacement(1);
+/* ══════════════ LOBBY & ONLINE ══════════════ */
+let gameMode='local'; // 'local' | 'train' | 'online'
+let myName='Comandante';
+let peer=null, conn=null;
+let myOnlinePlayer=1; // which player am I online (1 or 2)
+let onlineReady={1:false,2:false};
+let onlineShipsSent=false;
+
+const lobbyEl=document.getElementById('lobby');
+const lobbyName=document.getElementById('lobby-name');
+const lobbyStatus=document.getElementById('lobby-status');
+const lobbyUrlBox=document.getElementById('lobby-url-box');
+const lobbyUrlEl=document.getElementById('lobby-url');
+const lobbyStart=document.getElementById('lobby-start');
+const invasionAlert=document.getElementById('invasion-alert');
+const invasionCountdown=document.getElementById('invasion-countdown');
+
+// Mode buttons
+['local','train','battle'].forEach(m=>{
+  document.getElementById('mode-'+m).addEventListener('click',()=>{
+    document.querySelectorAll('.mode-btn').forEach(b=>b.classList.remove('active'));
+    document.getElementById('mode-'+m).classList.add('active');
+    gameMode= m==='battle'?'online':m;
+    lobbyUrlBox.classList.remove('show');
+    lobbyStatus.textContent='';
+    lobbyStart.textContent='Comenzar';
+  });
+});
+
+document.getElementById('lobby-copy').addEventListener('click',()=>{
+  navigator.clipboard.writeText(lobbyUrlEl.textContent).then(()=>{
+    document.getElementById('lobby-copy').textContent='✓ Copiado';
+    setTimeout(()=>document.getElementById('lobby-copy').textContent='📋 Copiar enlace',2000);
+  });
+});
+
+lobbyStart.addEventListener('click',()=>{
+  myName=(lobbyName.value.trim()||'Comandante').slice(0,16);
+  if(gameMode==='local'){
+    lobbyEl.classList.add('hide');
+    document.getElementById('game-shell').classList.add('show');
+    buildPips();showPlayerLabel(1,()=>startPlacement(1));
+  } else if(gameMode==='train'){
+    lobbyEl.classList.add('hide');
+    document.getElementById('game-shell').classList.add('show');
+    startTrainingMode();
+  } else {
+    startOnlineMode();
+  }
+});
+
+// Check URL for room param (joining)
+function getUrlRoom(){
+  return new URLSearchParams(location.search).get('room');
+}
+
+/* ── TRAINING MODE ── */
+function startTrainingMode(){
+  // Solo play — but listen for a peer to connect as "invader"
+  initPeerForTraining();
+  buildPips();showPlayerLabel(1,()=>startPlacement(1));
+}
+
+function initPeerForTraining(){
+  const roomId='siege-'+Math.random().toString(36).slice(2,8);
+  peer=new Peer(roomId,{debug:0});
+  peer.on('open',()=>{
+    // silently wait for connections
+  });
+  peer.on('connection',c=>{
+    conn=c;
+    conn.on('open',()=>triggerInvasion());
+  });
+}
+
+function triggerInvasion(){
+  invasionAlert.classList.add('show');
+  let n=3;
+  invasionCountdown.textContent=n;
+  const iv=setInterval(()=>{
+    n--;
+    if(n<=0){
+      clearInterval(iv);
+      invasionAlert.classList.remove('show');
+      // Tell invader to start as online battle
+      sendMsg({type:'invasion_accepted',myName});
+      switchToOnlineBattle();
+    } else {
+      invasionCountdown.textContent=n;
+    }
+  },1000);
+}
+
+/* ── ONLINE MODE ── */
+function startOnlineMode(){
+  const roomParam=getUrlRoom();
+  if(roomParam){
+    // We are player 2 — joining
+    joinOnlineRoom(roomParam);
+  } else {
+    // We are player 1 — hosting
+    hostOnlineRoom();
+  }
+}
+
+function hostOnlineRoom(){
+  lobbyStart.disabled=true;
+  lobbyStatus.textContent='Creando sala…';
+  myOnlinePlayer=1;
+  const roomId='siege-'+Math.random().toString(36).slice(2,8);
+  peer=new Peer(roomId,{debug:0});
+  peer.on('open',id=>{
+    const url=location.origin+location.pathname+'?room='+id;
+    lobbyUrlEl.textContent=url;
+    lobbyUrlBox.classList.add('show');
+    lobbyStatus.textContent='Esperando al rival…';
+    lobbyStart.textContent='Esperando…';
+  });
+  peer.on('connection',c=>{
+    conn=c;
+    setupConnHandlers();
+    conn.on('open',()=>{
+      sendMsg({type:'welcome',myName,player:1});
+      lobbyStatus.textContent='¡Rival conectado! Comenzando…';
+      setTimeout(()=>{
+        lobbyEl.classList.add('hide');
+        document.getElementById('game-shell').classList.add('show');
+        startOnlinePlacement();
+      },800);
+    });
+  });
+  peer.on('error',e=>{ lobbyStatus.textContent='Error: '+e.type; lobbyStart.disabled=false; });
+}
+
+function joinOnlineRoom(roomId){
+  lobbyStart.disabled=true;
+  lobbyStatus.textContent='Conectando…';
+  myOnlinePlayer=2;
+  peer=new Peer(undefined,{debug:0});
+  peer.on('open',()=>{
+    conn=peer.connect(roomId,{reliable:true});
+    setupConnHandlers();
+    conn.on('open',()=>{
+      sendMsg({type:'welcome',myName,player:2});
+      lobbyStatus.textContent='¡Conectado! Comenzando…';
+      setTimeout(()=>{
+        lobbyEl.classList.add('hide');
+        document.getElementById('game-shell').classList.add('show');
+        startOnlinePlacement();
+      },800);
+    });
+    conn.on('error',e=>{ lobbyStatus.textContent='No se pudo conectar.'; lobbyStart.disabled=false; });
+  });
+  peer.on('error',e=>{ lobbyStatus.textContent='Error: '+e.type; lobbyStart.disabled=false; });
+}
+
+function setupConnHandlers(){
+  conn.on('data',onMsgReceived);
+  conn.on('close',()=>{
+    if(phase==='game')showToast('','','📡 Rival desconectado',3000);
+  });
+}
+
+function sendMsg(obj){ if(conn&&conn.open) conn.send(JSON.stringify(obj)); }
+
+/* ── ONLINE PLACEMENT (simultaneous) ── */
+function startOnlinePlacement(){
+  gameMode='online';
+  // Both players place at the same time on their own screen
+  // myOnlinePlayer determines which panel they see
+  buildPips();
+
+  // Each player only places on their own panel
+  // We repurpose the local placement but only for myOnlinePlayer
+  onlineShipsSent=false;
+  onlineReady={1:false,2:false};
+
+  // Override panel layout: only show own panel as active
+  showOnlineLayout();
+  startPlacement(myOnlinePlayer);
+}
+
+function showOnlineLayout(){
+  // In online mode the device belongs to one player
+  // Hide the rival panel label and dim it
+  rivalPanel(myOnlinePlayer).style.opacity='0.2';
+  rivalPanel(myOnlinePlayer).style.pointerEvents='none';
+}
+
+// Override placementDone for online
+const _origPlacementDone=window.placementDone;
+function placementDone(player){
+  if(gameMode==='online'){
+    // Serialize ships and send to peer
+    panel(player).classList.add('no-click');panel(player).classList.remove('can-click');
+    picker.classList.add('hide');
+    const shipData=ships[myOnlinePlayer].map(s=>({
+      typeId:s.type.id, fx:s.fx, fy:s.fy, hp:s.type.hp, id:s.id
+    }));
+    sendMsg({type:'ships_ready', ships:shipData, player:myOnlinePlayer});
+    onlineReady[myOnlinePlayer]=true;
+    showToast('','','⏳ Esperando rival…',5000);
+    rivalPanel(myOnlinePlayer).style.opacity='1';
+  } else {
+    // Local/training behaviour
+    panel(player).classList.add('no-click');panel(player).classList.remove('can-click');
+    picker.classList.add('hide');
+    if(player===1){
+      showPlayerLabel(2,()=>startPlacement(2));
+    } else {
+      startGame();
+    }
+  }
+}
+
+function onMsgReceived(raw){
+  let msg;try{msg=JSON.parse(raw);}catch{return;}
+  switch(msg.type){
+    case 'welcome':
+      // Store rival name
+      break;
+    case 'ships_ready':{
+      // Rival sent their ships — reconstruct them
+      const rivalPlayer=myOnlinePlayer===1?2:1;
+      ships[rivalPlayer]=msg.ships.map(s=>{
+        const type=SHIP_TYPES.find(t=>t.id===s.typeId);
+        return {type, fx:s.fx, fy:s.fy, hp:s.hp, id:s.id, wrap:null};
+      });
+      // Place ship DOM elements in rival panel
+      ships[rivalPlayer].forEach(ship=>{
+        const wrap=createShipEl(ship,hex(rivalPlayer));
+        rivalPanel(myOnlinePlayer).appendChild(wrap);
+        positionShipEl(wrap,rivalPanel(myOnlinePlayer),ship.fx,ship.fy);
+        ship.wrap=wrap;
+      });
+      onlineReady[rivalPlayer]=true;
+      if(onlineReady[1]&&onlineReady[2]) startOnlineBattle();
+      break;
+    }
+    case 'shot':{
+      // Rival fired at us — process it
+      processRivalShot(msg);
+      break;
+    }
+    case 'turn_change':
+      currentPlayer=msg.to;
+      renderGamePanelsOnline();
+      break;
+    case 'invasion_accepted':
+      switchToOnlineBattle();
+      break;
+    case 'game_over':
+      showFinal();
+      break;
+  }
+}
+
+function startOnlineBattle(){
+  phase='game';history=[];score={1:0,2:0};
+  remaining={
+    1:ships[2].map((_,i)=>i).filter(i=>ships[2][i].hp>0),
+    2:ships[1].map((_,i)=>i).filter(i=>ships[1][i].hp>0)};
+  buildPips();refreshScores();
+  // Player 1 always goes first in online
+  currentPlayer=1;
+  renderGamePanelsOnline();
+  if(myOnlinePlayer===1){
+    showToast('','','🎲 Empiezas tú',1800);
+  } else {
+    showToast('','','🎲 Empieza el rival',1800);
+  }
+}
+
+function switchToOnlineBattle(){
+  // Called when training player's session becomes a real battle
+  gameMode='online';
+  myOnlinePlayer=1;
+  onlineReady={1:false,2:false};
+  // Reset and start fresh online placement
+  ships={1:[],2:[]};history=[];score={1:0,2:0};remaining={1:[],2:[]};
+  [pTop,pBot].forEach(p=>p.querySelectorAll('.mk,.mini-exp').forEach(d=>d.remove()));
+  buildPips();refreshScores();
+  showOnlineLayout();
+  startPlacement(myOnlinePlayer);
+}
+
+/* Online rendering: you only fire from your own panel */
+function renderGamePanelsOnline(){
+  const me=myOnlinePlayer, rival=me===1?2:1;
+  const myP=panel(me), rivP=rivalPanel(me);
+
+  myP.querySelectorAll('.shot-mk,.impact-mk').forEach(d=>d.remove());
+  rivP.querySelectorAll('.shot-mk,.impact-mk').forEach(d=>d.remove());
+
+  ships[1].forEach(s=>{ if(s.wrap) s.wrap.style.display='none'; });
+  ships[2].forEach(s=>{ if(s.wrap) s.wrap.style.display='none'; });
+
+  // Show own ships in own panel (you can see your fleet)
+  ships[me].forEach(s=>{ if(s.wrap){ s.wrap.style.display=''; positionShipEl(s.wrap,myP,s.fx,s.fy); }});
+
+  // Show rival ships in rival panel
+  ships[rival].forEach(s=>{ if(s.wrap){ s.wrap.style.display=''; positionShipEl(s.wrap,rivP,s.fx,s.fy); }});
+
+  // Shot marks
+  history.filter(h=>h.player===me).forEach(h=>{
+    const r=myP.getBoundingClientRect();
+    const mk=document.createElement('div');mk.className='mk shot-mk';
+    mk.style.left=(h.gfx*r.width)+'px';mk.style.top=(h.gfy*r.height)+'px';
+    mk.appendChild(drawShotSVG(hex(me),h.hit));myP.appendChild(mk);});
+  history.filter(h=>h.player===rival).forEach(h=>{
+    const r=myP.getBoundingClientRect();
+    const mx=h.mirrorX, my2=h.mirrorY;
+    const mk=document.createElement('div');mk.className='mk impact-mk';
+    mk.style.left=mx+'px';mk.style.top=my2+'px';
+    mk.appendChild(drawImpactSVG(hex(rival),h.hit));myP.appendChild(mk);});
+  history.filter(h=>h.player===me).forEach(h=>{
+    const mk=document.createElement('div');mk.className='mk impact-mk';
+    mk.style.left=h.mirrorX+'px';mk.style.top=h.mirrorY+'px';
+    mk.appendChild(drawImpactSVG(hex(me),h.hit));rivP.appendChild(mk);});
+
+  // Enable my panel only when it's my turn
+  const myTurn=(currentPlayer===me);
+  myP.classList.toggle('can-click',myTurn);myP.classList.toggle('no-click',!myTurn);
+  rivP.classList.add('no-click');rivP.classList.remove('can-click');
+  firingLocked=false;
+}
+
+/* Intercept handleFire for online mode */
+const _origHandleFire=handleFire;
+function handleFireOnline(e,player){
+  if(gameMode!=='online'){ _origHandleFire(e,player); return; }
+  if(player!==myOnlinePlayer)return;
+  if(currentPlayer!==myOnlinePlayer)return;
+  if(firingLocked)return;
+
+  const rem=remaining[player];if(!rem.length)return;
+  const ownP=panel(player);
+  const r=ownP.getBoundingClientRect();
+  const gfx=Math.min(1,Math.max(0,(e.clientX-r.left)/r.width));
+  const gfy=Math.min(1,Math.max(0,(e.clientY-r.top)/r.height));
+
+  // Send shot to rival
+  sendMsg({type:'shot', gfx, gfy, player});
+
+  // Process locally
+  processShot(gfx,gfy,player,true);
+}
+
+function processRivalShot(msg){
+  const {gfx,gfy,player}=msg;
+  processShot(gfx,gfy,player,false);
+}
+
+function processShot(gfx,gfy,shootingPlayer,isMe){
+  const rem=remaining[shootingPlayer];
+  const rivShips=ships[shootingPlayer===1?2:1];
+  let bestHit=null,bestDist=Infinity;
+  rem.forEach(idx=>{
+    const ship=rivShips[idx];
+    const res=hitCheck(gfx,gfy,ship,shootingPlayer);
+    if(res.hit&&res.pxDist<bestDist){bestDist=res.pxDist;bestHit={idx,ship,res};}
+  });
+  const targetIdx=rem[0];
+  const displayErr=targetIdx!==undefined?hitCheck(gfx,gfy,rivShips[targetIdx],shootingPlayer).errPct:0;
+  const isHit=bestHit!==null;
+  const rivR=rivalPanel(shootingPlayer).getBoundingClientRect();
+  const mirrorX=gfx*rivR.width, mirrorY=mirrorFy(gfy)*rivR.height;
+  const entry={player:shootingPlayer,gfx,gfy,hit:isHit,errPct:displayErr,mirrorX,mirrorY,
+    hitShipIdx:isHit?bestHit.idx:null};
+  history.push(entry);
+
+  if(isHit){
+    const ship=bestHit.ship;ship.hp--;
+    const owner=shootingPlayer===1?2:1;
+    redrawShipSVG(ship,hex(owner));
+    miniExplosion(rivalPanel(shootingPlayer),mirrorX,mirrorY,hex(shootingPlayer));
+    if(ship.hp<=0){remaining[shootingPlayer]=remaining[shootingPlayer].filter(i=>i!==bestHit.idx);score[shootingPlayer]++;}
+    else if(ship.type.canMove){dodgeShip(ship,owner);}
+  }
+  refreshScores();
+  renderGamePanelsOnline();
+
+  if(remaining[1].length===0||remaining[2].length===0){
+    setTimeout(()=>{if(isMe)sendMsg({type:'game_over'});showFinal();},400);return;
+  }
+  if(!isHit){
+    currentPlayer=shootingPlayer===1?2:1;
+    renderGamePanelsOnline();
+    if(isMe)showToast(displayErr.toFixed(1)+'%','bad',`❌ Fallo`,1200);
+    else showToast('','',`⚡ Rival falla — tu turno`,1200);
+  } else {
+    if(isMe)showToast(displayErr.toFixed(1)+'%','good',`🔥 Impacto`,1200);
+    else showToast('','',`💥 ¡Te impactan!`,1200);
+  }
+}
+
+// Override pTop/pBot click handlers to route online shots
+pTop.addEventListener('click',e=>{
+  if(phase==='game'&&gameMode==='online'&&myOnlinePlayer===1&&currentPlayer===1) handleFireOnline(e,1);
+});
+pBot.addEventListener('click',e=>{
+  if(phase==='game'&&gameMode==='online'&&myOnlinePlayer===2&&currentPlayer===2) handleFireOnline(e,2);
+});
+
+/* ── INIT ── */
+buildPips();
+if(getUrlRoom()){
+  document.getElementById('mode-battle').click();
+  lobbyStatus.textContent='Unirse a la partida…';
+}
+
 </script>
 </body>
 </html>
