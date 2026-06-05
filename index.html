@@ -298,8 +298,15 @@ body{
   font-size:clamp(2.5rem,12vw,5rem);letter-spacing:4px;
   color:#a8d4ff;
 }
+/* AIM CIRCLE */
+#aim-cursor{
+  position:fixed;pointer-events:none;z-index:100;
+  width:48px;height:48px;
+  transform:translate(-50%,-50%);
+  display:none;
+}
+#aim-cursor.show{display:block;}
 </style>
-</head>
 <body>
 <!-- LOBBY -->
 <div id="lobby">
@@ -333,6 +340,7 @@ body{
 </div>
 
 
+<div id="aim-cursor"></div>
 <canvas id="starfield"></canvas>
 <div id="nebula"></div>
 <div id="game-shell">
@@ -803,8 +811,91 @@ function renderGamePanels(){
 }
 
 /* click to fire */
-pTop.addEventListener('click',e=>{if(phase==='game'&&currentPlayer===1)handleFire(e,1);});
-pBot.addEventListener('click',e=>{if(phase==='game'&&currentPlayer===2)handleFire(e,2);});
+/* ══ AIM CURSOR + FIRE SYSTEM ══ */
+const aimCursor=document.getElementById('aim-cursor');
+// Build cursor SVG
+(()=>{
+  const sz=48,c=sz/2;
+  const ns='http://www.w3.org/2000/svg';
+  const svg=document.createElementNS(ns,'svg');
+  svg.setAttribute('width',sz);svg.setAttribute('height',sz);
+  svg.setAttribute('viewBox',`0 0 ${sz} ${sz}`);
+  const mk=(tag,attrs)=>{const el=document.createElementNS(ns,tag);Object.entries(attrs).forEach(([k,v])=>el.setAttribute(k,v));return el;};
+  svg.appendChild(mk('circle',{cx:c,cy:c,r:c-2,stroke:'#fff','stroke-width':1,fill:'none',opacity:.25}));
+  svg.appendChild(mk('circle',{cx:c,cy:c,r:c*.5,stroke:'#fff','stroke-width':1.2,fill:'none',opacity:.6}));
+  svg.appendChild(mk('circle',{cx:c,cy:c,r:2.5,fill:'#fff',opacity:.95}));
+  [[c,2,c,c-8],[c,c+8,c,sz-2],[2,c,c-8,c],[c+8,c,sz-2,c]].forEach(([x1,y1,x2,y2])=>
+    svg.appendChild(mk('line',{x1,y1,x2,y2,stroke:'#fff','stroke-width':1,opacity:.7})));
+  aimCursor.appendChild(svg);
+})();
+
+let aimClientX=0,aimClientY=0,aimActive=false;
+
+// Offset toward the dividing line: top panel → shift down, bottom panel → shift up
+const AIM_SHIFT=55; // px toward center
+
+function calcAimPos(touchX,touchY,player){
+  // player 1 = top panel → shift downward (toward divider)
+  // player 2 = bottom panel → shift upward (toward divider)
+  const dy=player===1?AIM_SHIFT:-AIM_SHIFT;
+  return {x:touchX, y:touchY+dy};
+}
+
+function showCursor(x,y,color){
+  aimCursor.style.left=x+'px';
+  aimCursor.style.top=y+'px';
+  aimCursor.querySelectorAll('circle,line').forEach(el=>el.setAttribute('stroke',color));
+  aimCursor.querySelector('circle:last-of-type').setAttribute('fill',color);
+  aimCursor.classList.add('show');
+  aimClientX=x; aimClientY=y;
+}
+function hideCursor(){ aimCursor.classList.remove('show'); aimActive=false; }
+
+function addFireTouch(panelEl,player){
+  panelEl.addEventListener('touchstart',e=>{
+    if(phase!=='game'||currentPlayer!==player||firingLocked)return;
+    e.preventDefault();
+    aimActive=true;
+    const t=e.touches[0];
+    const pos=calcAimPos(t.clientX,t.clientY,player);
+    showCursor(pos.x,pos.y,hex(player));
+  },{passive:false});
+
+  panelEl.addEventListener('touchmove',e=>{
+    if(!aimActive)return;
+    e.preventDefault();
+    const t=e.touches[0];
+    const pos=calcAimPos(t.clientX,t.clientY,player);
+    showCursor(pos.x,pos.y,hex(player));
+  },{passive:false});
+
+  panelEl.addEventListener('touchend',e=>{
+    if(!aimActive){hideCursor();return;}
+    e.preventDefault();
+    hideCursor();
+    // Fire at cursor position (clamped to own panel)
+    const r=panelEl.getBoundingClientRect();
+    const fx=Math.min(r.right-1,Math.max(r.left+1,aimClientX));
+    const fy=Math.min(r.bottom-1,Math.max(r.top+1,aimClientY));
+    if(gameMode==='online') handleFireOnline({clientX:fx,clientY:fy},player);
+    else handleFire({clientX:fx,clientY:fy},player);
+  },{passive:false});
+
+  panelEl.addEventListener('touchcancel',()=>hideCursor());
+}
+
+let lastTouch=0;
+pTop.addEventListener('click',e=>{
+  if(Date.now()-lastTouch<600)return;
+  if(phase==='game'&&currentPlayer===1&&!firingLocked){
+    if(gameMode==='online')handleFireOnline(e,1);else handleFire(e,1);}});
+pBot.addEventListener('click',e=>{
+  if(Date.now()-lastTouch<600)return;
+  if(phase==='game'&&currentPlayer===2&&!firingLocked){
+    if(gameMode==='online')handleFireOnline(e,2);else handleFire(e,2);}});
+
+addFireTouch(pTop,1);
+addFireTouch(pBot,2);
 
 function handleFire(e,player){
   if(firingLocked)return;
