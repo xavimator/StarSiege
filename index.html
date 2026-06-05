@@ -612,27 +612,43 @@ function startPlacement(player){
   document.getElementById('rand-btn').onclick=(e)=>{e.stopPropagation();randomPlacement(player);};}
 
 function startTrainBattle(){
-  ships[2]=[];
-  const p2=panel(2);
-  const pw=panelW(p2), ph=panelH(p2);
+  // Enemy ships go in pTop (player 1 slot)
+  ships[1]=[];
+  const p1=panel(1);
+  const pw=panelW(p1), ph=panelH(p1);
   SHIP_TYPES.forEach(tt=>{
     for(let q=0;q<tt.quota;q++){
       const hw=tt.w/2/pw+.02,hh=tt.h/2/ph+.02;
       const fx=hw+Math.random()*(1-2*hw);
       const fy=hh+Math.random()*(1-2*hh);
-      const ship={type:tt,fx,fy,hp:tt.hp,id:ships[2].length,wrap:null};
-      ships[2].push(ship);
-      const wrap=createShipEl(ship,hex(2));
-      p2.appendChild(wrap);
-      positionShipEl(wrap,p2,fx,fy);
+      const ship={type:tt,fx,fy,hp:tt.hp,id:ships[1].length,wrap:null};
+      ships[1].push(ship);
+      const wrap=createShipEl(ship,hex(1));
+      p1.appendChild(wrap);
+      positionShipEl(wrap,p1,fx,fy);
       ship.wrap=wrap;
     }
   });
-  startGame();
+  // Human is player 2 (pBot), always fires, enemy (player 1) never shoots back
+  phase='game';history=[];score={1:0,2:0};
+  [1,2].forEach(p=>{panel(p).querySelectorAll('.shot-mk,.impact-mk').forEach(d=>d.remove());});
+  [1,2].forEach(p=>ships[p].forEach(s=>{ if(s.wrap) s.wrap.style.display='none'; }));
+  remaining={
+    1:[], // enemy never shoots
+    2:ships[1].map((_,i)=>i) // human targets enemy ships
+  };
+  currentPlayer=2;
+  buildPips();refreshScores();
+  picker.classList.add('hide');
+  firingLocked=true;
+  renderGamePanels();
+  setTimeout(()=>{ firingLocked=false; },350);
 }
 
 function randomPlacement(player){
-  panel(player).querySelectorAll('.mk,.ship-wrap').forEach(d=>d.remove());
+  // Clear existing ships AND marks from the panel
+  ships[player].forEach(s=>{ if(s.wrap) s.wrap.remove(); });
+  panel(player).querySelectorAll('.shot-mk,.impact-mk').forEach(d=>d.remove());
   ships[player]=[];initPicks(player);
   const p=panel(player);
   requestAnimationFrame(()=>{
@@ -707,7 +723,7 @@ function placementDone(player){
     showToast('','','⏳ Esperando rival…',5000);
     rivalPanel(myOnlinePlayer).style.opacity='1';
   } else if(gameMode==='train'){
-    // solo: place ships for player 1 only, then start game with just J1 fleet
+    // human is player 2 (pBot), now start battle with enemy in pTop
     startTrainBattle();
   } else {
     // local: J1 done → show J2 label then J2 places
@@ -900,17 +916,22 @@ function drawImpactSVG(color,hit){
   return svg;}
 
 function afterShot(hit,player){
-  // Check win condition
-  if(remaining[1].length===0||remaining[2].length===0){setTimeout(showFinal,400);return;}
+  // Win: in training human is player 2, wins when remaining[2] empty
+  const trainWin=gameMode==='train'&&remaining[2].length===0;
+  const localWin=gameMode!=='train'&&(remaining[1].length===0||remaining[2].length===0);
+  if(trainWin||localWin){setTimeout(showFinal,400);return;}
 
   if(hit){
-    // Same player continues — re-render (updates phase msg, re-enables panel)
     renderGamePanels();
   } else {
-    // Miss → hand off to the other player
-    currentPlayer=currentPlayer===1?2:1;
-    if(!remaining[currentPlayer].length){setTimeout(showFinal,400);return;}
-    showHandoff(currentPlayer);
+    if(gameMode==='train'){
+      // Miss in training — no turn switch, player 2 keeps shooting
+      renderGamePanels();
+    } else {
+      currentPlayer=currentPlayer===1?2:1;
+      if(!remaining[currentPlayer].length){setTimeout(showFinal,400);return;}
+      showHandoff(currentPlayer);
+    }
   }
 }
 
@@ -1039,21 +1060,22 @@ function getUrlRoom(){
 
 /* ── TRAINING MODE ── */
 function startTrainingMode(){
-  // Solo play — but listen for a peer to connect as "invader"
   initPeerForTraining();
-  buildPips();showPlayerLabel(1,()=>startPlacement(1));
+  buildPips();showPlayerLabel(2,()=>startPlacement(2));
 }
 
 function initPeerForTraining(){
-  const roomId='siege-'+Math.random().toString(36).slice(2,8);
-  peer=new Peer(roomId,{debug:0});
-  peer.on('open',()=>{
-    // silently wait for connections
-  });
-  peer.on('connection',c=>{
-    conn=c;
-    conn.on('open',()=>triggerInvasion());
-  });
+  try{
+    if(typeof Peer==='undefined')return;
+    const roomId='siege-'+Math.random().toString(36).slice(2,8);
+    peer=new Peer(roomId,{debug:0});
+    peer.on('open',()=>{});
+    peer.on('connection',c=>{
+      conn=c;
+      conn.on('open',()=>triggerInvasion());
+    });
+    peer.on('error',()=>{}); // ignore errors silently
+  }catch(e){}
 }
 
 function triggerInvasion(){
