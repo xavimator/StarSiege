@@ -1203,18 +1203,26 @@ function hostCreate(){
   lobbyStart.disabled=true;
   lobbyStatus.textContent='Creando sala…';
   isHost=true; myTeam='A';
-  myRoomId='siege-'+Math.random().toString(36).slice(2,8);
-  peer=new Peer(myRoomId,{debug:0});
+
+  // Let PeerJS assign a random ID — avoids peer-unavailable on custom IDs
+  peer=new Peer(undefined,{
+    debug:0,
+    config:{
+      iceServers:[
+        {urls:'stun:stun.l.google.com:19302'},
+        {urls:'stun:stun1.l.google.com:19302'}
+      ]
+    }
+  });
 
   peer.on('open',id=>{
     myId=id;
+    myRoomId=id; // room code = host's peer ID
     combatants[myId]={id:myId,name:myName,team:'A',ships:[],_shipObjs:[],inGame:false,score:0};
 
     const url=location.origin+location.pathname+'?room='+id;
     lobbyUrlEl.textContent=url;
     lobbyUrlBox.classList.add('show');
-
-    // Stay in lobby — show player list
     showLobbyPlayerList();
     lobbyStatus.textContent='Esperando jugadores…';
   });
@@ -1236,7 +1244,15 @@ function clientJoin(rid){
   lobbyStart.disabled=true;
   lobbyStatus.textContent='Conectando…';
   isHost=false; myRoomId=rid;
-  peer=new Peer(undefined,{debug:0});
+  peer=new Peer(undefined,{
+    debug:0,
+    config:{
+      iceServers:[
+        {urls:'stun:stun.l.google.com:19302'},
+        {urls:'stun:stun1.l.google.com:19302'}
+      ]
+    }
+  });
 
   peer.on('open',id=>{
     myId=id;
