@@ -83,23 +83,44 @@ body{
   font-size:clamp(.64rem,1.6vw,.88rem);letter-spacing:5px;
   pointer-events:none;opacity:.08;text-transform:uppercase;
 }
+.ptag.editable{pointer-events:auto;opacity:.22;cursor:pointer;}
+.ptag.editable:active{opacity:.5;}
 #panel-top .ptag{color:var(--c1);}
 #panel-bot .ptag{color:var(--c2);}
 
-.ptag-edit{
-  position:absolute;top:4px;left:8px;
-  font-family:'Exo 2',sans-serif;font-weight:100;font-style:italic;
-  font-size:clamp(.64rem,1.6vw,.88rem);letter-spacing:4px;
-  background:transparent;border:none;outline:none;
-  color:inherit;opacity:.18;text-transform:uppercase;
-  width:clamp(80px,22vw,200px);z-index:10;
-  cursor:text;
-  transition:opacity .2s;
+/* NAME EDITOR OVERLAY */
+#name-editor{
+  position:fixed;inset:0;z-index:200;
+  display:none;align-items:center;justify-content:center;
+  background:rgba(1,9,21,.82);backdrop-filter:blur(6px);
 }
-.ptag-edit:focus{opacity:.55;background:rgba(255,255,255,.03);border-bottom:1px solid currentColor;}
-#panel-top .ptag-edit{color:var(--c1);}
-#panel-bot .ptag-edit{color:var(--c2);}
+#name-editor.show{display:flex;}
+#name-editor-box{
+  display:flex;flex-direction:column;align-items:center;gap:14px;
+  padding:28px 24px;background:rgba(3,13,28,.97);
+  border:1px solid rgba(168,212,255,.15);border-radius:4px;
+  min-width:220px;
+}
+#name-editor-lbl{
+  font-family:'Exo 2',sans-serif;font-weight:100;font-style:italic;
+  font-size:.75rem;letter-spacing:4px;text-transform:uppercase;opacity:.6;
+}
+#name-editor-inp{
+  font-family:'Exo 2',sans-serif;font-weight:200;font-size:1.1rem;
+  letter-spacing:3px;text-transform:uppercase;
+  background:rgba(255,255,255,.04);border:none;
+  border-bottom:1px solid currentColor;
+  color:currentColor;outline:none;padding:6px 4px;
+  width:180px;text-align:center;
+}
+#name-editor-ok{
+  font-family:'Exo 2',sans-serif;font-size:.85rem;letter-spacing:3px;
+  padding:7px 22px;background:transparent;cursor:pointer;
+  border:1px solid currentColor;color:currentColor;border-radius:2px;
+  text-transform:uppercase;
+}
 
+/* MARKS */
 .mk{position:absolute;pointer-events:none;transform:translate(-50%,-50%);transition:left .6s ease,top .6s ease;}
 .mk svg{display:block;}
 .mk.no-transition{transition:none;}
@@ -325,8 +346,12 @@ body{
 <div id="lobby">
   <div id="lobby-title">Star Siege</div>
   <div class="lobby-field">
-    <div class="lobby-lbl">Nombre del comandante</div>
-    <input class="lobby-input" id="lobby-name" placeholder="Tu nombre" maxlength="16" autocomplete="off"/>
+    <div class="lobby-lbl" id="lbl-name1">Nombre del comandante</div>
+    <input class="lobby-input" id="lobby-name" placeholder="Jugador 1" maxlength="16" autocomplete="off"/>
+  </div>
+  <div class="lobby-field" id="lobby-j2-row">
+    <div class="lobby-lbl" style="color:var(--c2)">Nombre J2</div>
+    <input class="lobby-input" id="lobby-name2" placeholder="Jugador 2" maxlength="16" autocomplete="off" style="border-color:rgba(78,205,196,.4);color:var(--c2);"/>
   </div>
   <div class="lobby-field">
     <div class="lobby-lbl">Modo</div>
@@ -366,14 +391,22 @@ body{
   </div>
 </div>
 <div id="arena">
-  <div class="panel no-click" id="panel-top"><div class="ptag" id="ptag-top">Jugador 1</div></div>
-  <div class="panel no-click" id="panel-bot"><div class="ptag" id="ptag-bot">Jugador 2</div></div>
+  <div class="panel no-click" id="panel-top"><div class="ptag">Jugador 1</div></div>
+  <div class="panel no-click" id="panel-bot"><div class="ptag">Jugador 2</div></div>
 </div>
 <div id="picker"><div id="picker-msg"></div><div id="picker-btns"></div><button id="rand-btn">⚄ Aleatorio</button></div>
 </div><!-- /game-shell -->
 <div id="handoff-veil" class="hide">
   <div id="hv-msg"></div>
   <button id="hv-btn"></button>
+</div>
+<!-- NAME EDITOR -->
+<div id="name-editor">
+  <div id="name-editor-box">
+    <div id="name-editor-lbl">Nombre</div>
+    <input id="name-editor-inp" type="text" maxlength="16" autocomplete="off"/>
+    <button id="name-editor-ok">✓ Confirmar</button>
+  </div>
 </div>
 <div id="toast"><div id="toast-err">—</div><div id="toast-msg">—</div></div>
 <div id="phase-msg" style="display:none"></div>
@@ -461,20 +494,15 @@ const SHIP_TYPES = [
   {
     id:'lg', label:'Larga', quota:2, hp:2, canMove:false,
     w:32, h:8,
-    draw(color,hp,maxHp,angleDeg){
+    draw(color,hp,maxHp){
       const sunk=hp<=0;
-      const a=sunk?.18:.4+.6*(hp/maxHp);
-      const sz=44, cx=sz/2, cy=sz/2, svg=mkSVG(sz,sz);
-      const g=ns('g');
-      g.setAttribute('transform',`rotate(${angleDeg||0} ${cx} ${cy})`);
-      const rx=cx-16, ry=cy-4;
-      addEl(g,'rect',{x:rx,y:ry,width:32,height:8,stroke:color,'stroke-width':.8,fill:'none',rx:1,opacity:a*.65});
-      addEl(g,'line',{x1:cx,y1:ry,x2:cx,y2:ry+8,stroke:color,'stroke-width':.7,opacity:a*.5});
-      addEl(g,'circle',{cx,cy,r:1.5,fill:color,opacity:a});
-      for(let d=0;d<maxHp-hp;d++){const x=rx+(d===0?8:22);
-        addEl(g,'line',{x1:x,y1:ry,x2:x+3,y2:ry+8,stroke:'#ff4444','stroke-width':1.3,opacity:.9});
-        addEl(g,'line',{x1:x+3,y1:ry,x2:x,y2:ry+8,stroke:'#ff4444','stroke-width':1.3,opacity:.9});}
-      svg.appendChild(g);
+      const a=sunk?.18:.4+.6*(hp/maxHp), svg=mkSVG(32,8), cx=16, cy=4;
+      addEl(svg,'rect',{x:1,y:1,width:30,height:6,stroke:color,'stroke-width':.8,fill:'none',rx:1,opacity:a*.65});
+      addEl(svg,'line',{x1:cx,y1:1,x2:cx,y2:7,stroke:color,'stroke-width':.7,opacity:a*.5});
+      addEl(svg,'circle',{cx,cy,r:1.5,fill:color,opacity:a});
+      for(let d=0;d<maxHp-hp;d++){const x=d===0?9:23;
+        addEl(svg,'line',{x1:x,y1:1,x2:x+3,y2:7,stroke:'#ff4444','stroke-width':1.3,opacity:.9});
+        addEl(svg,'line',{x1:x+3,y1:1,x2:x,y2:7,stroke:'#ff4444','stroke-width':1.3,opacity:.9});}
       return svg;
     }
   },
@@ -520,31 +548,7 @@ const hvMsg=document.getElementById('hv-msg');
 const hvBtn=document.getElementById('hv-btn');
 const foOverlay=document.getElementById('final-overlay');
 
-function injectEditableNames(){
-  [1,2].forEach(p=>{
-    const pan=panel(p);
-    // remove old ptag static
-    const old=pan.querySelector('.ptag');if(old)old.style.display='none';
-    if(pan.querySelector('.ptag-edit'))return;
-    const inp=document.createElement('input');
-    inp.type='text';inp.className='ptag-edit';
-    inp.maxLength=16;inp.value=playerNames[p];
-    inp.addEventListener('input',()=>{
-      playerNames[p]=inp.value||('Jugador '+p);
-      // sync scoreboard label
-      document.querySelector(`#sb${p} .sb-lbl`).textContent=playerNames[p].slice(0,6);
-    });
-    inp.addEventListener('touchstart',e=>e.stopPropagation(),{passive:true});
-    inp.addEventListener('mousedown',e=>e.stopPropagation());
-    pan.appendChild(inp);
-  });
-  // update scoreboard labels
-  [1,2].forEach(p=>{
-    document.querySelector(`#sb${p} .sb-lbl`).textContent=playerNames[p].slice(0,6);
-  });
-}
-
-
+function ch(p){return p===1?'var(--c1)':'var(--c2)';}
 function hex(p){return p===1?'#ff6b35':'#4ecdc4';}
 function panel(p){return p===1?pTop:pBot;}
 function rivalPanel(p){return p===1?pBot:pTop;}
@@ -604,42 +608,12 @@ function hitCheck(gfx,gfy,ship,rivalP){
   const errPct=(pxDist/diag)*100;
   return{hit:inBox, errPct, pxDist, mirrorX:sx, mirrorY:sy};}
 
-/* ══ RANDOM FLASH FOR SMALL SHIPS ══ */
-function scheduleFlash(ship, playerColor){
-  if(!ship||ship.type.id!=='xs'||ship.hp<=0) return;
-  const delay=8000+Math.random()*22000; // 8–30s random interval
-  setTimeout(()=>{
-    if(!ship.wrap||ship.hp<=0) return;
-    // Flash: briefly brighten the svg
-    const svg=ship.wrap.querySelector('svg');
-    if(!svg) return;
-    const flash=document.createElementNS('http://www.w3.org/2000/svg','circle');
-    flash.setAttribute('cx','4');flash.setAttribute('cy','4');
-    flash.setAttribute('r','5');flash.setAttribute('fill',playerColor);
-    flash.setAttribute('opacity','0.9');
-    svg.appendChild(flash);
-    // animate out
-    let op=0.9;
-    const fade=setInterval(()=>{
-      op-=0.09; flash.setAttribute('opacity',op);
-      if(op<=0){ clearInterval(fade); flash.remove(); }
-    },30);
-    scheduleFlash(ship, playerColor); // reschedule
-  }, delay);
-}
-
-function activateSmallShipFlashes(player){
-  ships[player].forEach(s=>{
-    if(s.type.id==='xs') scheduleFlash(s, hex(player));
-  });
-}
-
+/* ══════════════ SHIP DOM ══════════════ */
 function createShipEl(ship,playerColor){
   const wrap=document.createElement('div');
   wrap.className='mk no-transition';
   wrap.dataset.shipId=ship.id;
-  const angleDeg=ship.angleDeg||0;
-  const svg=ship.type.draw(playerColor,ship.hp,ship.type.hp,angleDeg);
+  const svg=ship.type.draw(playerColor,ship.hp,ship.type.hp);
   wrap.appendChild(svg);
   return wrap;}
 
@@ -654,8 +628,7 @@ function redrawShipSVG(ship,playerColor){
   if(!ship.wrap)return;
   ship.wrap.innerHTML='';
   const drawColor=ship.hp<=0?'#1a3060':playerColor;
-  const angleDeg=ship.angleDeg||0;
-  const svg=ship.type.draw(drawColor,ship.hp,ship.type.hp,angleDeg);
+  const svg=ship.type.draw(drawColor,ship.hp,ship.type.hp);
   ship.wrap.appendChild(svg);}
 
 /* ══════════════ PLACEMENT ══════════════ */
@@ -677,14 +650,7 @@ function buildPicker(player){
     cnt.textContent=rem>0?`×${rem}`:'—';
     cnt.style.color=rem>0?hex(player):'rgba(255,255,255,.2)';
     btn.appendChild(shapeWrap);btn.appendChild(cnt);
-    if(rem>0){btn.addEventListener('click',()=>{
-      selectedType=tt;buildPicker(player);
-      const m=document.getElementById('picker-msg');
-      if(tt.id==='lg')
-        m.innerHTML=`<span style="color:${hex(player)};font-weight:300">J${player}</span><span style="color:var(--muted)"> — arrastra para girar</span>`;
-      else
-        m.innerHTML=`<span style="color:${hex(player)};font-weight:300">J${player}</span><span style="color:var(--muted)"> — despliega</span>`;
-    });}
+    if(rem>0){btn.addEventListener('click',()=>{selectedType=tt;buildPicker(player);});}
     pickerBtns.appendChild(btn);});}
 
 function startPlacement(player){
@@ -695,11 +661,6 @@ function startPlacement(player){
   picker.classList.remove('hide');buildPicker(player);
   const msg=document.getElementById('picker-msg');
   msg.innerHTML=`<span style="color:${hex(player)};font-weight:300">J${player}</span><span style="color:var(--muted)"> — despliega</span>`;
-  // Override hint when lg is selected via picker click
-  pickerBtns.querySelectorAll&&setTimeout(()=>{
-    if(selectedType&&selectedType.id==='lg')
-      msg.innerHTML=`<span style="color:${hex(player)};font-weight:300">J${player}</span><span style="color:var(--muted)"> — arrastra para girar</span>`;
-  },0);
   phaseMsg.innerHTML='';
   document.getElementById('rand-btn').style.color=hex(player);
   document.getElementById('rand-btn').onclick=(e)=>{e.stopPropagation();randomPlacement(player);};}
@@ -718,8 +679,7 @@ function startTrainBattle(){
         const hw=tt.w/2/pw+.02, hh=tt.h/2/ph+.02;
         const fx=hw+Math.random()*(1-2*hw);
         const fy=hh+Math.random()*(1-2*hh);
-        const angleDeg=tt.id==='lg'?[0,45,90,135][Math.floor(Math.random()*4)]:0;
-        const ship={type:tt,fx,fy,hp:tt.hp,id:ships[1].length,wrap:null,angleDeg};
+        const ship={type:tt,fx,fy,hp:tt.hp,id:ships[1].length,wrap:null};
         ships[1].push(ship);
         const wrap=createShipEl(ship,hex(1));
         p1.appendChild(wrap); positionShipEl(wrap,p1,fx,fy);
@@ -743,9 +703,6 @@ function startTrainBattle(){
 
     firingLocked=true;
     setTimeout(()=>{ firingLocked=false; }, 350);
-
-    // Flash small ships
-    activateSmallShipFlashes(1);
   });
 }
 
@@ -762,8 +719,7 @@ function randomPlacement(player){
         const hw=tt.w/2/pw+.02,hh=tt.h/2/ph+.02;
         const fx=hw+Math.random()*(1-2*hw);
         const fy=hh+Math.random()*(1-2*hh);
-        const angleDeg=tt.id==='lg'?[0,45,90,135][Math.floor(Math.random()*4)]:0;
-        const ship={type:tt,fx,fy,hp:tt.hp,id:ships[player].length,wrap:null,angleDeg};
+        const ship={type:tt,fx,fy,hp:tt.hp,id:ships[player].length,wrap:null};
         ships[player].push(ship);
         picks[player][tt.id]--;
         const wrap=createShipEl(ship,hex(player));
@@ -777,94 +733,8 @@ function randomPlacement(player){
   });
 }
 
-/* ══ DRAG-ROTATION PLACEMENT FOR LONG SHIPS ══ */
-let lgDragState=null; // {ship, wrap, panel, startX, startY, fx, fy}
-
-function snapTo45(deg){
-  return Math.round(deg/45)*45;
-}
-
-function startLgDrag(e, player){
-  const pan=panel(player);
-  const r=pan.getBoundingClientRect();
-  const cx=e.clientX, cy=e.clientY;
-  const fx=Math.min(1,Math.max(0,(cx-r.left)/r.width));
-  const fy=Math.min(1,Math.max(0,(cy-r.top)/r.height));
-  const ship={type:selectedType,fx,fy,hp:selectedType.hp,id:ships[player].length,wrap:null,angleDeg:0};
-  ships[player].push(ship);
-  picks[player][selectedType.id]--;
-  const wrap=createShipEl(ship,hex(player));
-  pan.appendChild(wrap);
-  positionShipEl(wrap,pan,fx,fy);
-  ship.wrap=wrap;
-  lgDragState={ship,pan,player,startX:cx,startY:cy};
-  return ship;
-}
-
-function updateLgDrag(e){
-  if(!lgDragState)return;
-  const {ship,pan,startX,startY}=lgDragState;
-  const dx=e.clientX-startX, dy=e.clientY-startY;
-  const dist=Math.sqrt(dx*dx+dy*dy);
-  if(dist<6)return; // dead zone
-  const rawDeg=Math.atan2(dy,dx)*(180/Math.PI);
-  ship.angleDeg=snapTo45(rawDeg);
-  redrawShipSVG(ship,hex(lgDragState.player));
-}
-
-function endLgDrag(player){
-  if(!lgDragState)return;
-  lgDragState=null;
-  // next available type
-  const tt=selectedType;
-  if(picks[player][tt.id]===0){const avail=SHIP_TYPES.find(t=>picks[player][t.id]>0);if(avail)selectedType=avail;}
-  buildPicker(player);
-  const placed=ships[player].length, rem=TOTAL_SHIPS-placed;
-  phaseMsg.innerHTML=rem>0?`<b style="color:${ch(player)}">J${player}</b> — ${rem} nave${rem!==1?'s':''} restante${rem!==1?'s':''}`:`<b style="color:${ch(player)}">J${player}</b> — listo`;
-  if(SHIP_TYPES.every(t=>picks[player][t.id]===0))setTimeout(()=>placementDone(player),200);
-}
-
-// Touch handlers for lg drag
-function addLgDragToPanel(panelEl, player){
-  let isDragging=false;
-  panelEl.addEventListener('touchstart',e=>{
-    if(phase!=='place'||placingPlayer!==player)return;
-    if(selectedType.id!=='lg'||picks[player]['lg']<=0)return;
-    e.preventDefault();
-    isDragging=true;
-    startLgDrag(e.touches[0], player);
-  },{passive:false});
-  panelEl.addEventListener('touchmove',e=>{
-    if(!isDragging||!lgDragState)return;
-    e.preventDefault();
-    updateLgDrag(e.touches[0]);
-  },{passive:false});
-  panelEl.addEventListener('touchend',e=>{
-    if(!isDragging||!lgDragState)return;
-    e.preventDefault();
-    isDragging=false;
-    endLgDrag(player);
-  },{passive:false});
-  // Mouse drag for desktop
-  panelEl.addEventListener('mousedown',e=>{
-    if(phase!=='place'||placingPlayer!==player)return;
-    if(selectedType.id!=='lg'||picks[player]['lg']<=0)return;
-    startLgDrag(e, player);
-    const onMove=ev=>updateLgDrag(ev);
-    const onUp=()=>{ endLgDrag(player); document.removeEventListener('mousemove',onMove); document.removeEventListener('mouseup',onUp); };
-    document.addEventListener('mousemove',onMove);
-    document.addEventListener('mouseup',onUp);
-  });
-}
-
-addLgDragToPanel(pTop,1);
-addLgDragToPanel(pBot,2);
-
-// Click listeners for non-lg ships
-pTop.addEventListener('click',e=>{if(phase==='place'&&placingPlayer===1&&selectedType.id!=='lg')handlePlaceClick(e,1);});
-pBot.addEventListener('click',e=>{if(phase==='place'&&placingPlayer===2&&selectedType.id!=='lg')handlePlaceClick(e,2);});
-
-
+pTop.addEventListener('click',e=>{if(phase==='place'&&placingPlayer===1)handlePlaceClick(e,1);});
+pBot.addEventListener('click',e=>{if(phase==='place'&&placingPlayer===2)handlePlaceClick(e,2);});
 
 function handlePlaceClick(e,player){
   if(picks[player][selectedType.id]<=0){
@@ -874,7 +744,7 @@ function handlePlaceClick(e,player){
   const fx=Math.min(1,Math.max(0,(e.clientX-r.left)/r.width));
   const fy=Math.min(1,Math.max(0,(e.clientY-r.top)/r.height));
   const tt=selectedType;
-  const ship={type:tt,fx,fy,hp:tt.hp,id:ships[player].length,wrap:null,angleDeg:0};
+  const ship={type:tt,fx,fy,hp:tt.hp,id:ships[player].length,wrap:null};
   ships[player].push(ship);
   picks[player][tt.id]--;
   // draw
@@ -892,7 +762,8 @@ function handlePlaceClick(e,player){
 function showPlayerLabel(player, callback){
   const targetPanel=panel(player);
   targetPanel.appendChild(hv);
-  hvMsg.textContent=`Jugador ${player}`;
+  const name=player===1?(window._p1name||'Jugador 1'):(window._p2name||'Jugador 2');
+  hvMsg.textContent=name;
   hvMsg.style.color=hex(player);
   hv.classList.remove('hide');hv.classList.add('show');
   setTimeout(()=>{
@@ -940,13 +811,10 @@ function startGame(){
   currentPlayer=Math.random()<.5?1:2;
   picker.classList.add('hide');
   firingLocked=true;
-  if(gameMode==='local') injectEditableNames();
+  if(gameMode==='local') activateEditablePtags();
   renderGamePanels();
   showToast(`J${currentPlayer}`,null,'🎲 Primer turno aleatorio',1800);
   setTimeout(()=>{ firingLocked=false; },350);
-  // Start random flashes on small ships
-  activateSmallShipFlashes(1);
-  activateSmallShipFlashes(2);
 }
 
 /* render: show both panels from current player's POV
@@ -1041,6 +909,7 @@ function hideCursor(){ aimCursor.classList.remove('show'); aimActive=false; }
 function addFireTouch(panelEl,player){
   panelEl.addEventListener('touchstart',e=>{
     if(phase!=='game'||currentPlayer!==player||firingLocked)return;
+    if(e.target.classList.contains('ptag'))return;
     e.preventDefault();
     aimActive=true;
     const t=e.touches[0];
@@ -1083,6 +952,63 @@ pBot.addEventListener('click',e=>{
 
 addFireTouch(pTop,1);
 addFireTouch(pBot,2);
+
+/* ══ NAME EDITOR (in-game, local mode) ══ */
+(()=>{
+  const ned=document.getElementById('name-editor');
+  const nedinp=document.getElementById('name-editor-inp');
+  const nedlbl=document.getElementById('name-editor-lbl');
+  const nedok=document.getElementById('name-editor-ok');
+  let _nedPlayer=1;
+
+  function openEditor(player){
+    _nedPlayer=player;
+    const name=player===1?(window._p1name||'Jugador 1'):(window._p2name||'Jugador 2');
+    nedlbl.textContent=`Nombre J${player}`;
+    nedlbl.style.color=hex(player);
+    nedinp.style.color=hex(player);
+    nedinp.style.borderColor=hex(player);
+    nedok.style.color=hex(player);
+    nedok.style.borderColor=hex(player);
+    nedinp.value=name;
+    ned.classList.add('show');
+    setTimeout(()=>nedinp.focus(),80);
+  }
+
+  function saveEditor(){
+    const name=nedinp.value.trim().slice(0,16)||'Jugador '+_nedPlayer;
+    if(_nedPlayer===1) window._p1name=name; else window._p2name=name;
+    // Update ptag and scoreboard
+    panel(_nedPlayer).querySelector('.ptag').textContent=name;
+    document.querySelector(`#sb${_nedPlayer} .sb-lbl`).textContent=name.slice(0,8);
+    ned.classList.remove('show');
+  }
+
+  nedok.addEventListener('click',saveEditor);
+  nedinp.addEventListener('keydown',e=>{ if(e.key==='Enter')saveEditor(); });
+  ned.addEventListener('click',e=>{ if(e.target===ned)ned.classList.remove('show'); });
+
+  // Expose so startGame can wire ptags
+  window.openNameEditor=openEditor;
+})();
+
+function activateEditablePtags(){
+  [1,2].forEach(p=>{
+    const tag=panel(p).querySelector('.ptag');
+    if(!tag)return;
+    // Set initial name from lobby
+    const name=p===1?(window._p1name||'Jugador 1'):(window._p2name||'Jugador 2');
+    tag.textContent=name;
+    tag.classList.add('editable');
+    // Clone to clear old listeners
+    const fresh=tag.cloneNode(true);
+    tag.parentNode.replaceChild(fresh,tag);
+    fresh.classList.add('editable');
+    fresh.addEventListener('click',e=>{ e.stopPropagation(); window.openNameEditor(p); });
+    fresh.addEventListener('touchstart',e=>{ e.stopPropagation(); },{passive:true});
+    fresh.addEventListener('touchend',e=>{ e.stopPropagation(); e.preventDefault(); window.openNameEditor(p); },{passive:false});
+  });
+}
 
 function handleFire(e,player){
   if(firingLocked)return;
@@ -1278,14 +1204,6 @@ function showFinal(){
 
 let gameMode='local';
 let myName='Comandante';
-let playerNames={1:'Jugador 1',2:'Jugador 2'};
-
-function updatePtags(){
-  const t=document.getElementById('ptag-top');
-  const b=document.getElementById('ptag-bot');
-  if(t) t.textContent=playerNames[1];
-  if(b) b.textContent=playerNames[2];
-}
 
 /* ── PeerJS state ── */
 let peer=null, isHost=false, myId=null, myRoomId=null;
@@ -1316,6 +1234,8 @@ const invasionCountdown=document.getElementById('invasion-countdown');
     document.querySelectorAll('.mode-btn').forEach(b=>b.classList.remove('active'));
     document.getElementById('mode-'+m).classList.add('active');
     gameMode=m==='battle'?'online':m;
+    document.getElementById('lobby-j2-row').style.display=gameMode==='local'?'':'none';
+    document.getElementById('lbl-name1').textContent=gameMode==='local'?'Nombre J1':'Nombre del comandante';
     lobbyUrlBox.classList.remove('show');
     lobbyStatus.textContent='';
     lobbyStart.textContent='Comenzar';
@@ -1334,11 +1254,14 @@ document.getElementById('lobby-copy').addEventListener('click',()=>{
 });
 
 lobbyStart.addEventListener('click',()=>{
-  myName=(lobbyName.value.trim()||'Comandante').slice(0,16);
+  myName=(lobbyName.value.trim()||'Jugador 1').slice(0,16);
   if(gameMode==='local'){
-    playerNames[1]=myName||'Jugador 1';
-    playerNames[2]='Jugador 2';
-    updatePtags();
+    const n2=document.getElementById('lobby-name2').value.trim().slice(0,16)||'Jugador 2';
+    // Store names in scoreboard labels immediately
+    document.querySelector('#sb1 .sb-lbl').textContent=myName.slice(0,8);
+    document.querySelector('#sb2 .sb-lbl').textContent=n2.slice(0,8);
+    // Store for veil display
+    window._p1name=myName; window._p2name=n2;
     lobbyEl.classList.add('hide');
     document.getElementById('game-shell').classList.add('show');
     buildPips();showPlayerLabel(1,()=>startPlacement(1));
