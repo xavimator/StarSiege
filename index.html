@@ -1084,18 +1084,16 @@ function showFinal(){
   else{fw.textContent='⚔ Empate';fw.style.color='#a8d4ff';}
   foOverlay.classList.add('show');}
 
-<!-- ONLINE SECTION PLACEHOLDER -->
 
 /* ══════════════════════════════════════════════════════════
    LOBBY & ONLINE  — Star Siege multiplayer
    
    Flow:
-   • First player → goes straight to placement (no wait)
-   • Someone joins → alert shown to host + 30s placement window
-   • Joiner places ships then attacks first
-   • Late joiners → don't stop the game; use calculated ship quota
-   • Reinforcements → pick ally by name, get same ships as ally
-   • Teams: first player is Team A; joiners choose Enemy (B) or Reinforce (A)
+   • Host clicks "Batalla online" → waits in lobby, shows URL + player list
+   • Client opens URL → sees host in list, chooses Enemy or Reinforce
+   • Both get 30s placement timer simultaneously  
+   • Joiner attacks first once both ready
+   • Late joiners mid-game: enemy = avg ships; reinforce = ally's ships
 ══════════════════════════════════════════════════════════ */
 
 let gameMode='local';
@@ -1103,16 +1101,16 @@ let myName='Comandante';
 
 /* ── PeerJS state ── */
 let peer=null, isHost=false, myId=null, myRoomId=null;
-let hostConn=null;            // client→host connection
-let clientConns={};           // host only: peerId→DataConnection
-let myTeam='A';               // 'A' host/allies | 'B' enemies
-let allyTargetId=null;        // chosen ally for reinforcement
+let hostConn=null;
+let clientConns={};
 
-/* ── Game state (all players) ── */
-/* Each "combatant" is {id,name,team,ships:[],hp,score,inGame,turnPending} */
-let combatants={};            // id → combatant
-let activeTurnId=null;        // whose turn it is globally
-let battleStarted=false;      // has placement phase ended for at least one pair
+/* ── Game state ── */
+let myTeam='A';
+let combatants={};     // id→{id,name,team,_shipObjs,ships,inGame,score}
+let activeTurnId=null;
+let battleStarted=false;
+let myOnlineShips=[];
+let enemyOnlineShips=[];
 
 /* ── DOM ── */
 const lobbyEl=document.getElementById('lobby');
@@ -1134,14 +1132,17 @@ const invasionCountdown=document.getElementById('invasion-countdown');
     lobbyStatus.textContent='';
     lobbyStart.textContent='Comenzar';
     lobbyStart.disabled=false;
+    const pl=document.getElementById('lobby-player-list');
+    if(pl) pl.remove();
   });
 });
 
 document.getElementById('lobby-copy').addEventListener('click',()=>{
-  navigator.clipboard.writeText(lobbyUrlEl.textContent).then(()=>{
-    document.getElementById('lobby-copy').textContent='✓ Copiado';
-    setTimeout(()=>document.getElementById('lobby-copy').textContent='📋 Copiar enlace',2000);
-  }).catch(()=>{});
+  navigator.clipboard.writeText(lobbyUrlEl.textContent)
+    .then(()=>{
+      document.getElementById('lobby-copy').textContent='✓ Copiado';
+      setTimeout(()=>document.getElementById('lobby-copy').textContent='📋 Copiar enlace',2000);
+    }).catch(()=>{});
 });
 
 lobbyStart.addEventListener('click',()=>{
@@ -1182,161 +1183,197 @@ function triggerInvasion(){
   invasionAlert.classList.add('show');
   let n=3; invasionCountdown.textContent=n;
   const iv=setInterval(()=>{
-    n--;
+    n--; invasionCountdown.textContent=n;
     if(n<=0){ clearInterval(iv); invasionAlert.classList.remove('show'); }
-    else invasionCountdown.textContent=n;
   },1000);
 }
 
 /* ═══════════════════════════════════════════════
-   ONLINE MODE
+   ONLINE — ENTRY POINT
 ═══════════════════════════════════════════════ */
 function startOnlineMode(){
   const roomParam=getUrlRoom();
-  if(roomParam){ joinRoom(roomParam); } else { hostRoom(); }
+  if(roomParam){ clientJoin(roomParam); } else { hostCreate(); }
 }
 
-/* ── HOST: first player, goes straight to placement ── */
-function hostRoom(){
+/* ═══════════════════════════════════════════════
+   HOST — creates room, waits in lobby
+═══════════════════════════════════════════════ */
+function hostCreate(){
   lobbyStart.disabled=true;
-  lobbyStatus.textContent='Conectando…';
+  lobbyStatus.textContent='Creando sala…';
   isHost=true; myTeam='A';
   myRoomId='siege-'+Math.random().toString(36).slice(2,8);
   peer=new Peer(myRoomId,{debug:0});
+
   peer.on('open',id=>{
     myId=id;
+    combatants[myId]={id:myId,name:myName,team:'A',ships:[],_shipObjs:[],inGame:false,score:0};
+
     const url=location.origin+location.pathname+'?room='+id;
-    lobbyUrlEl.textContent=url; lobbyUrlBox.classList.add('show');
-    // Register self
-    combatants[myId]={id:myId,name:myName,team:'A',ships:[],inGame:false,score:0};
-    // Go straight to placement — no waiting
-    lobbyEl.classList.add('hide');
-    document.getElementById('game-shell').classList.add('show');
-    gameMode='online';
-    startOnlinePlacement(10, null);
+    lobbyUrlEl.textContent=url;
+    lobbyUrlBox.classList.add('show');
+
+    // Stay in lobby — show player list
+    showLobbyPlayerList();
+    lobbyStatus.textContent='Esperando jugadores…';
   });
+
   peer.on('connection',c=>{
     clientConns[c.peer]=c;
     c.on('data',raw=>hostReceive(raw,c.peer));
     c.on('close',()=>{ delete clientConns[c.peer]; onPeerLeft(c.peer); });
     c.on('error',()=>{ delete clientConns[c.peer]; });
   });
+
   peer.on('error',e=>{ lobbyStatus.textContent='Error: '+e.type; lobbyStart.disabled=false; });
 }
 
-/* ── CLIENT: join via URL ── */
-function joinRoom(rid){
+/* ═══════════════════════════════════════════════
+   CLIENT — joins existing room
+═══════════════════════════════════════════════ */
+function clientJoin(rid){
   lobbyStart.disabled=true;
   lobbyStatus.textContent='Conectando…';
   isHost=false; myRoomId=rid;
   peer=new Peer(undefined,{debug:0});
+
   peer.on('open',id=>{
     myId=id;
     hostConn=peer.connect(rid,{reliable:true});
     hostConn.on('open',()=>{
-      // Request to join — server will respond with options
-      hostSend({type:'join_hello',name:myName,id:myId});
-      lobbyStatus.textContent='Conectado. Esperando respuesta…';
+      hostSend({type:'hello',name:myName,id:myId});
     });
     hostConn.on('data',raw=>clientReceive(raw));
-    hostConn.on('close',()=>{ if(phase==='game') showToast('','','📡 Desconectado del host',3000); });
-    hostConn.on('error',()=>{ lobbyStatus.textContent='Error de conexión.'; lobbyStart.disabled=false; });
+    hostConn.on('close',()=>{ showToast('','','📡 Host desconectado',3000); });
+    hostConn.on('error',()=>{ lobbyStatus.textContent='No se pudo conectar.'; lobbyStart.disabled=false; });
   });
+
   peer.on('error',e=>{ lobbyStatus.textContent='Error: '+e.type; lobbyStart.disabled=false; });
 }
 
-/* ── SEND helpers ── */
+/* ── Send helpers ── */
 function hostSend(obj){ if(hostConn&&hostConn.open) hostConn.send(JSON.stringify(obj)); }
 function sendTo(pid,obj){ const c=clientConns[pid]; if(c&&c.open) c.send(JSON.stringify(obj)); }
-function broadcast(obj,excludeId){
+function broadcastAll(obj,excludeId){
   Object.keys(clientConns).forEach(pid=>{ if(pid!==excludeId) sendTo(pid,obj); });
 }
-function broadcastAll(obj){ broadcast(obj,null); }
 
 /* ═══════════════════════════════════════════════
-   HOST LOGIC — receives messages from clients
+   HOST RECEIVES
 ═══════════════════════════════════════════════ */
 function hostReceive(raw,fromId){
   let msg; try{msg=JSON.parse(raw);}catch{return;}
+
   switch(msg.type){
 
-    case 'join_hello':{
-      // New player wants to join
-      combatants[fromId]={id:fromId,name:msg.name,team:'?',ships:[],inGame:false,score:0};
-      // Calculate quota: enemies get average living ships, reinforcements get ally's count
-      const avgShips=calcAvgLivingShips();
-      // Send them the current game state and player list for picking team/ally
+    case 'hello':{
+      // New player arrived — register and send them current state
+      combatants[fromId]={id:fromId,name:msg.name,team:'?',ships:[],_shipObjs:[],inGame:false,score:0};
+      // Send current player list to new joiner so they can choose
       sendTo(fromId,{
-        type:'join_options',
+        type:'room_state',
         players:serializeCombatants(),
-        avgShips,
-        battleStarted
+        hostId:myId,
+        battleStarted,
+        avgShips:calcAvgLivingShips()
       });
-      // Show alert to host and all in-game clients
-      const alertMsg={type:'enemy_arming',name:msg.name,id:fromId};
-      broadcastAll(alertMsg);
-      showEnemyArmingAlert(msg.name);
+      // Notify everyone else
+      broadcastAll({type:'player_joined',player:{id:fromId,name:msg.name,team:'?'}}, fromId);
+      // Update host lobby list
+      showLobbyPlayerList();
       break;
     }
 
-    case 'join_choice':{
-      // Joiner chose team and ally (if reinforcement)
-      combatants[fromId].team=msg.team;
-      combatants[fromId].allyId=msg.allyId||null;
-      const quota=msg.team==='B'
-        ? calcAvgLivingShips()
-        : (msg.allyId&&combatants[msg.allyId]
-            ? countLivingShips(msg.allyId)
-            : 10);
-      combatants[fromId].quota=quota;
-      // Tell joiner to start placing
-      sendTo(fromId,{type:'start_placement',quota,team:msg.team});
-      // Alert everyone
-      broadcastAll({type:'enemy_arming',name:combatants[fromId].name,id:fromId});
-      break;
-    }
+    case 'choose_team':{
+      // Joiner picked team and optionally an ally
+      const team=msg.team;
+      const allyId=msg.allyId||null;
+      combatants[fromId].team=team;
 
-    case 'ships_ready':{
-      // Client finished placing ships
-      combatants[fromId].ships=msg.ships;
-      combatants[fromId].inGame=true;
-      // Reconstruct on host side
-      reconstructShipsForCombatant(fromId,msg.ships);
-      // Tell everyone about new combatant's ships
-      broadcastAll({type:'combatant_entered',id:fromId,name:combatants[fromId].name,team:combatants[fromId].team,ships:msg.ships});
-      // If battle not started yet, start it now (first pair ready)
-      if(!battleStarted){
-        const inGame=Object.values(combatants).filter(c=>c.inGame);
-        if(inGame.length>=2 || (inGame.length>=1 && combatants[myId]&&combatants[myId].inGame)){
-          battleStarted=true;
-          // Joiner attacks first
-          activeTurnId=fromId;
-          const startMsg={type:'battle_start',activeTurnId,combatants:serializeCombatants(),allShips:buildShipsPayload()};
-          broadcastAll(startMsg);
-          onBattleStart(startMsg);
-        }
+      let quota;
+      if(team==='B'){
+        quota=battleStarted?calcAvgLivingShips():10;
       } else {
-        // Battle in progress — joiner enters mid-game
-        // Give them current state
-        sendTo(fromId,{type:'mid_join',activeTurnId,combatants:serializeCombatants(),allShips:buildShipsPayload()});
-        // Add to turn order after current turn
-        injectIntoTurnOrder(fromId);
-        broadcastAll({type:'turn_order_update',turnOrder:getTurnOrder(),activeTurnId});
+        quota=allyId&&combatants[allyId]?countLivingShips(allyId):10;
+      }
+      combatants[fromId].quota=quota;
+
+      // Notify everyone
+      broadcastAll({type:'player_team_set',id:fromId,name:combatants[fromId].name,team,quota});
+      showLobbyPlayerList();
+
+      // If host is already in game, joiner goes to placement immediately
+      if(battleStarted||combatants[myId].inGame){
+        sendTo(fromId,{type:'go_place',quota,team,battleStarted});
+        // Host also starts if not yet placed
+        if(!combatants[myId].inGame) hostGoPlace();
+      } else {
+        // Both wait — host starts placement when first joiner picks team
+        sendTo(fromId,{type:'go_place',quota,team,battleStarted:false});
+        hostGoPlace();
       }
       break;
     }
 
-    case 'host_ships_ready':{
+    case 'ships_ready':{
+      combatants[fromId].ships=msg.ships;
+      combatants[fromId].inGame=true;
+      reconstructShips(fromId,msg.ships);
+
+      // Tell everyone about new fleet
+      broadcastAll({type:'fleet_ready',id:fromId,name:combatants[fromId].name,team:combatants[fromId].team,ships:msg.ships});
+
+      const readyPlayers=Object.values(combatants).filter(c=>c.inGame);
+      const hasEnemies=readyPlayers.some(c=>c.team==='A')&&readyPlayers.some(c=>c.team==='B');
+
+      if(!battleStarted && hasEnemies){
+        battleStarted=true;
+        // Joiner attacks first
+        activeTurnId=fromId;
+        const payload={
+          type:'battle_start',
+          activeTurnId,
+          combatants:serializeCombatants(),
+          allShips:buildShipsPayload()
+        };
+        broadcastAll(payload);
+        onBattleStart(payload);
+      } else if(battleStarted){
+        // Mid-game join
+        sendTo(fromId,{
+          type:'mid_join',
+          activeTurnId,
+          combatants:serializeCombatants(),
+          allShips:buildShipsPayload()
+        });
+        injectTurnAfterCurrent(fromId);
+        broadcastAll({type:'turn_update',activeTurnId});
+      }
+      break;
+    }
+
+    case 'host_placed':{
       // Host finished placement
       combatants[myId].ships=msg.ships;
       combatants[myId].inGame=true;
+      reconstructShips(myId,msg.ships);
+      // Check if we can start
+      const ready=Object.values(combatants).filter(c=>c.inGame);
+      const hasEnemies=ready.some(c=>c.team==='A')&&ready.some(c=>c.team==='B');
+      if(!battleStarted&&hasEnemies){
+        battleStarted=true;
+        activeTurnId=Object.keys(clientConns)[0]||myId;
+        const payload={type:'battle_start',activeTurnId,combatants:serializeCombatants(),allShips:buildShipsPayload()};
+        broadcastAll(payload);
+        onBattleStart(payload);
+      }
       break;
     }
 
     case 'shot':{
-      // Forward to all, process locally
-      broadcastAll({...msg,fromId},fromId);
-      processOnlineShot(msg,fromId);
+      broadcastAll({...msg},fromId);
+      processShot(msg);
       break;
     }
 
@@ -1348,49 +1385,49 @@ function hostReceive(raw,fromId){
 }
 
 /* ═══════════════════════════════════════════════
-   CLIENT LOGIC — receives from host
+   CLIENT RECEIVES
 ═══════════════════════════════════════════════ */
 function clientReceive(raw){
   let msg; try{msg=JSON.parse(raw);}catch{return;}
+
   switch(msg.type){
 
-    case 'join_options':{
-      // Show team picker
-      Object.assign(combatants, msg.players||{});
-      showJoinOptions(msg);
+    case 'room_state':{
+      // Received current room — show who's there and team picker
+      if(msg.players) Object.assign(combatants, msg.players);
+      showJoinScreen(msg);
       break;
     }
 
-    case 'start_placement':{
-      // Begin placing ships
-      lobbyEl.classList.add('hide');
-      document.getElementById('game-shell').classList.add('show');
-      gameMode='online';
-      startOnlinePlacement(msg.quota, msg.team);
+    case 'player_joined':{
+      combatants[msg.player.id]=msg.player;
+      updateLobbyList();
       break;
     }
 
-    case 'enemy_arming':{
-      if(msg.id!==myId) showEnemyArmingAlert(msg.name);
+    case 'player_team_set':{
+      if(combatants[msg.id]) combatants[msg.id].team=msg.team;
+      updateLobbyList();
       break;
     }
 
-    case 'battle_start':{
-      onBattleStart(msg);
+    case 'go_place':{
+      myTeam=msg.team;
+      showArmingAlert();
+      setTimeout(()=>launchPlacement(msg.quota,msg.team), 3200);
       break;
     }
 
+    case 'fleet_ready':{
+      combatants[msg.id]={...(combatants[msg.id]||{}),name:msg.name,team:msg.team,inGame:true};
+      reconstructShips(msg.id,msg.ships);
+      if(phase==='game') updateEnemyDisplay();
+      break;
+    }
+
+    case 'battle_start':
     case 'mid_join':{
       onBattleStart(msg);
-      break;
-    }
-
-    case 'combatant_entered':{
-      // New player entered mid-game — add their ships to display
-      combatants[msg.id]={...combatants[msg.id]||{},name:msg.name,team:msg.team,inGame:true};
-      reconstructShipsForCombatant(msg.id,msg.ships);
-      updateEnemyDisplay();
-      showToast('','',`⚡ ${msg.name} ha entrado`,2000);
       break;
     }
 
@@ -1399,7 +1436,7 @@ function clientReceive(raw){
       break;
     }
 
-    case 'turn_order_update':{
+    case 'turn_update':{
       activeTurnId=msg.activeTurnId;
       renderOnlineGame();
       break;
@@ -1416,47 +1453,77 @@ function clientReceive(raw){
 }
 
 /* ═══════════════════════════════════════════════
-   JOIN OPTIONS UI
+   LOBBY UI
 ═══════════════════════════════════════════════ */
-function showJoinOptions(msg){
-  lobbyStart.style.display='none';
-  const box=document.createElement('div');
-  box.id='join-opts';
-  box.style.cssText='display:flex;flex-direction:column;align-items:center;gap:10px;width:100%;max-width:300px;';
+function showLobbyPlayerList(){
+  let el=document.getElementById('lobby-player-list');
+  if(!el){
+    el=document.createElement('div');
+    el.id='lobby-player-list';
+    el.style.cssText='width:100%;max-width:300px;display:flex;flex-direction:column;gap:4px;';
+    // Insert before lobby-start button
+    lobbyStart.parentNode.insertBefore(el,lobbyStart);
+  }
+  el.innerHTML='<div style="font-family:Exo 2;font-weight:200;font-size:.65rem;letter-spacing:3px;color:#7ab0e8;text-transform:uppercase;margin-bottom:2px">Jugadores en sala</div>';
+  Object.values(combatants).forEach(c=>{
+    const row=document.createElement('div');
+    row.style.cssText='display:flex;justify-content:space-between;align-items:center;padding:5px 8px;background:rgba(168,212,255,.05);border:1px solid rgba(168,212,255,.1);border-radius:2px;';
+    const teamColor=c.team==='A'?'#4ecdc4':c.team==='B'?'#ff6b35':'#5a8fd4';
+    row.innerHTML=`<span style="font-family:Exo 2;font-size:.75rem;letter-spacing:2px;color:#e8f4ff">${c.name}</span><span style="font-family:Exo 2;font-size:.6rem;letter-spacing:2px;color:${teamColor}">${c.team==='A'?'Aliado':c.team==='B'?'Enemigo':'...'}</span>`;
+    el.appendChild(row);
+  });
+}
 
-  const hasAllies=Object.values(msg.players||{}).filter(p=>p.team==='A').length>0;
+function updateLobbyList(){
+  showLobbyPlayerList();
+}
+
+function showJoinScreen(msg){
+  lobbyStatus.textContent='';
+  // Show player list
+  showLobbyPlayerList();
+
+  // Replace start button with team picker
+  lobbyStart.style.display='none';
+  let box=document.getElementById('join-box');
+  if(box) box.remove();
+  box=document.createElement('div');
+  box.id='join-box';
+  box.style.cssText='width:100%;max-width:300px;display:flex;flex-direction:column;gap:8px;';
+
+  const allies=Object.values(msg.players||{}).filter(p=>p.team==='A');
+  const hasAllies=allies.length>0;
 
   box.innerHTML=`
-    <div style="font-family:'Exo 2';font-weight:200;font-size:.72rem;letter-spacing:3px;color:#7ab0e8;text-transform:uppercase;text-align:center">Elige bando</div>
-    <div style="display:flex;gap:8px;width:100%">
-      <button id="opt-enemy" style="flex:1;padding:10px 6px;font-family:'Exo 2';font-weight:200;font-size:.68rem;letter-spacing:2px;text-transform:uppercase;border:1px solid rgba(255,100,50,.4);background:rgba(255,100,50,.08);color:#ff9977;cursor:pointer;border-radius:2px;">⚔ Enemigo<br><span style="opacity:.5;font-size:.6rem">${msg.avgShips} naves</span></button>
-      ${hasAllies?`<button id="opt-ally" style="flex:1;padding:10px 6px;font-family:'Exo 2';font-weight:200;font-size:.68rem;letter-spacing:2px;text-transform:uppercase;border:1px solid rgba(80,200,180,.4);background:rgba(80,200,180,.08);color:#4ecdc4;cursor:pointer;border-radius:2px;">🛡 Refuerzo</button>`:''}
+    <div style="font-family:Exo 2;font-weight:200;font-size:.68rem;letter-spacing:3px;color:#7ab0e8;text-transform:uppercase;text-align:center;margin-top:6px">Elige bando</div>
+    <div style="display:flex;gap:8px">
+      <button id="btn-enemy" style="flex:1;padding:10px 6px;font-family:Exo 2;font-weight:200;font-size:.68rem;letter-spacing:2px;text-transform:uppercase;border:1px solid rgba(255,107,53,.4);background:rgba(255,107,53,.08);color:#ff9977;cursor:pointer;border-radius:2px;">⚔ Enemigo<br><span style="opacity:.5;font-size:.58rem">${msg.avgShips||10} naves</span></button>
+      ${hasAllies?`<button id="btn-ally" style="flex:1;padding:10px 6px;font-family:Exo 2;font-weight:200;font-size:.68rem;letter-spacing:2px;text-transform:uppercase;border:1px solid rgba(78,205,196,.4);background:rgba(78,205,196,.08);color:#4ecdc4;cursor:pointer;border-radius:2px;">🛡 Refuerzo</button>`:''}
     </div>
-    <div id="ally-picker" style="display:none;flex-direction:column;gap:5px;width:100%">
-      <div style="font-family:'Exo 2';font-size:.65rem;letter-spacing:2px;color:#5a8fd4;text-transform:uppercase;text-align:center">¿A quién refuerzas?</div>
+    <div id="ally-pick" style="display:none;flex-direction:column;gap:4px;">
+      <div style="font-family:Exo 2;font-size:.62rem;letter-spacing:2px;color:#5a8fd4;text-transform:uppercase;text-align:center">¿A quién refuerzas?</div>
       <div id="ally-list"></div>
     </div>`;
-
   lobbyEl.appendChild(box);
 
-  document.getElementById('opt-enemy').addEventListener('click',()=>{
-    hostSend({type:'join_choice',team:'B',allyId:null});
-    box.innerHTML='<div style="color:#ff9977;font-family:Exo 2;font-size:.8rem;letter-spacing:2px;text-align:center">⚔ Preparando armamento…</div>';
+  document.getElementById('btn-enemy').addEventListener('click',()=>{
+    hostSend({type:'choose_team',team:'B',allyId:null});
+    box.innerHTML='<div style="color:#ff9977;font-family:Exo 2;font-size:.8rem;letter-spacing:2px;text-align:center">⚔ Armándose…</div>';
   });
 
-  const optAlly=document.getElementById('opt-ally');
-  if(optAlly) optAlly.addEventListener('click',()=>{
-    const ap=document.getElementById('ally-picker');
+  const btnAlly=document.getElementById('btn-ally');
+  if(btnAlly) btnAlly.addEventListener('click',()=>{
+    const ap=document.getElementById('ally-pick');
     ap.style.display='flex';
     const list=document.getElementById('ally-list');
     list.innerHTML='';
-    Object.values(msg.players||{}).filter(p=>p.team==='A').forEach(p=>{
+    allies.forEach(p=>{
       const btn=document.createElement('button');
-      btn.style.cssText='padding:8px;font-family:Exo 2;font-weight:200;font-size:.68rem;letter-spacing:2px;text-transform:uppercase;border:1px solid rgba(168,212,255,.2);background:rgba(168,212,255,.05);color:#a8d4ff;cursor:pointer;border-radius:2px;width:100%;margin:2px 0';
+      btn.style.cssText='padding:7px;font-family:Exo 2;font-weight:200;font-size:.68rem;letter-spacing:2px;text-transform:uppercase;border:1px solid rgba(168,212,255,.2);background:rgba(168,212,255,.05);color:#a8d4ff;cursor:pointer;border-radius:2px;width:100%;margin:2px 0';
       btn.textContent='Reforzar a '+p.name;
       btn.addEventListener('click',()=>{
-        hostSend({type:'join_choice',team:'A',allyId:p.id});
-        box.innerHTML='<div style="color:#4ecdc4;font-family:Exo 2;font-size:.8rem;letter-spacing:2px;text-align:center">🛡 Preparando refuerzo…</div>';
+        hostSend({type:'choose_team',team:'A',allyId:p.id});
+        box.innerHTML='<div style="color:#4ecdc4;font-family:Exo 2;font-size:.8rem;letter-spacing:2px;text-align:center">🛡 Refuerzo en camino…</div>';
       });
       list.appendChild(btn);
     });
@@ -1464,86 +1531,89 @@ function showJoinOptions(msg){
 }
 
 /* ═══════════════════════════════════════════════
-   ENEMY ARMING ALERT
+   ARMING ALERT (shown to all when someone joins)
 ═══════════════════════════════════════════════ */
-function showEnemyArmingAlert(name){
-  const inv=document.getElementById('invasion-alert');
+function showArmingAlert(name){
   const title=document.getElementById('invasion-title');
   const cd=document.getElementById('invasion-countdown');
-  title.textContent=`⚠ ${name} se está armando`;
-  inv.classList.add('show');
+  title.textContent=name?`⚠ ${name} se está armando`:'⚠ Enemigo armándose';
+  invasionAlert.classList.add('show');
   let n=3; cd.textContent=n;
   const iv=setInterval(()=>{
     n--; cd.textContent=n;
-    if(n<=0){ clearInterval(iv); inv.classList.remove('show'); }
+    if(n<=0){ clearInterval(iv); invasionAlert.classList.remove('show'); }
   },1000);
 }
 
 /* ═══════════════════════════════════════════════
-   PLACEMENT PHASE (online)
+   PLACEMENT
 ═══════════════════════════════════════════════ */
-let onlineQuota=10;
 let placementTimerIv=null;
+let onlineShipQuota=10;
 
-function startOnlinePlacement(quota, team){
-  onlineQuota=quota||10;
+function hostGoPlace(){
+  if(combatants[myId]&&combatants[myId].inGame) return;
+  showArmingAlert();
+  setTimeout(()=>launchPlacement(10,'A'),3200);
+}
+
+function launchPlacement(quota, team){
+  onlineShipQuota=quota||10;
   myTeam=team||'A';
   gameMode='online';
   ships={1:[],2:[]};history=[];score={1:0,2:0};remaining={1:[],2:[]};
   [pTop,pBot].forEach(p=>p.querySelectorAll('.mk,.mini-exp,.shot-mk,.impact-mk').forEach(d=>d.remove()));
+  lobbyEl.classList.add('hide');
+  const jb=document.getElementById('join-box'); if(jb) jb.remove();
+  const lb=document.getElementById('lobby-player-list'); if(lb) lb.remove();
+  lobbyStart.style.display='';
+  document.getElementById('game-shell').classList.add('show');
   buildPips();
-  // Place in pBot (slot 2)
   startPlacement(2);
-  // Start 30s countdown
-  startPlacementCountdown(30);
+  startPlacementTimer(30,()=>{
+    if(ships[2].length<onlineShipQuota) randomPlacement(2);
+  });
 }
 
-function startPlacementCountdown(secs){
-  let timerEl=document.getElementById('placement-timer');
-  if(!timerEl){
-    timerEl=document.createElement('div');
-    timerEl.id='placement-timer';
-    timerEl.style.cssText='position:fixed;top:0;left:50%;transform:translateX(-50%);z-index:80;font-family:Exo 2;font-weight:100;font-size:1.4rem;letter-spacing:4px;color:#a8d4ff;padding:4px 16px;background:rgba(1,9,21,.85);border-bottom:1px solid rgba(80,130,220,.3);';
-    document.body.appendChild(timerEl);
+function startPlacementTimer(secs,onDone){
+  stopPlacementTimer();
+  let el=document.getElementById('ptimer');
+  if(!el){
+    el=document.createElement('div');el.id='ptimer';
+    el.style.cssText='position:fixed;top:0;left:50%;transform:translateX(-50%);z-index:80;font-family:Exo 2;font-weight:100;font-size:1.3rem;letter-spacing:4px;color:#a8d4ff;padding:4px 14px;background:rgba(1,9,21,.88);border-bottom:1px solid rgba(80,130,220,.3);pointer-events:none;';
+    document.body.appendChild(el);
   }
-  let t=secs;
-  timerEl.textContent=t+'s';
+  let t=secs; el.textContent=t+'s';
   placementTimerIv=setInterval(()=>{
-    t--;
-    timerEl.textContent=t+'s';
-    if(t<=0){
-      clearInterval(placementTimerIv);
-      timerEl.remove();
-      // Auto-complete placement if not done
-      if(ships[2].length<onlineQuota) randomPlacement(2);
-    }
+    t--; el.textContent=t+'s';
+    if(t<=0){ clearInterval(placementTimerIv); el.remove(); onDone(); }
   },1000);
 }
 
-function stopPlacementCountdown(){
+function stopPlacementTimer(){
   if(placementTimerIv){ clearInterval(placementTimerIv); placementTimerIv=null; }
-  const el=document.getElementById('placement-timer');
-  if(el) el.remove();
+  const el=document.getElementById('ptimer'); if(el) el.remove();
 }
 
 /* ── Override placementDone for online ── */
-const _origPlacementDone=window.placementDone;
 function placementDone(player){
   if(gameMode==='online'){
-    stopPlacementCountdown();
+    stopPlacementTimer();
     panel(player).classList.add('no-click');panel(player).classList.remove('can-click');
     picker.classList.add('hide');
     const shipData=ships[player].map(s=>({typeId:s.type.id,fx:s.fx,fy:s.fy,hp:s.type.hp,id:s.id}));
+    combatants[myId]=combatants[myId]||{id:myId,name:myName,team:myTeam,ships:[],_shipObjs:[],inGame:false,score:0};
+    combatants[myId].ships=shipData;
+    combatants[myId].inGame=true;
+    reconstructShips(myId,shipData);
     if(isHost){
-      combatants[myId].ships=shipData;
-      combatants[myId].inGame=true;
-      // Notify host logic (self)
-      hostReceive(JSON.stringify({type:'host_ships_ready',ships:shipData}),myId);
-      showToast('','','⏳ Esperando rival…',6000);
+      hostReceive(JSON.stringify({type:'host_placed',ships:shipData}),myId);
     } else {
       hostSend({type:'ships_ready',ships:shipData});
-      showToast('','','⏳ Esperando inicio…',6000);
     }
+    showToast('','','⏳ Esperando rivales…',8000);
+    // Show invite button in game
+    showInviteButton();
   } else if(gameMode==='train'){
     startTrainBattle();
   } else {
@@ -1552,16 +1622,31 @@ function placementDone(player){
   }
 }
 
+/* ── Invite button (in-game, online mode) ── */
+function showInviteButton(){
+  if(document.getElementById('invite-btn')) return;
+  const btn=document.createElement('button');
+  btn.id='invite-btn';
+  btn.style.cssText='position:fixed;bottom:70px;right:10px;z-index:60;font-family:Exo 2;font-weight:200;font-size:.6rem;letter-spacing:2px;text-transform:uppercase;padding:6px 10px;border:1px solid rgba(168,212,255,.25);background:rgba(1,9,21,.85);color:#a8d4ff;cursor:pointer;border-radius:2px;';
+  btn.textContent='🔗 Invitar';
+  btn.addEventListener('click',()=>{
+    const url=location.origin+location.pathname+'?room='+myRoomId;
+    navigator.clipboard.writeText(url).then(()=>{
+      btn.textContent='✓ Copiado';
+      setTimeout(()=>btn.textContent='🔗 Invitar',2000);
+    }).catch(()=>{
+      prompt('Enlace de invitación:',url);
+    });
+  });
+  document.body.appendChild(btn);
+}
+
 /* ═══════════════════════════════════════════════
    BATTLE
 ═══════════════════════════════════════════════ */
-/* Each device: my ships in pBot, all enemy ships merged in pTop */
-let myOnlineShips=[];  // my own ship objects (pBot)
-let enemyOnlineShips=[];// all enemy ship objects (pTop)
-
-function reconstructShipsForCombatant(cid,shipArr){
-  if(!combatants[cid]) return;
-  combatants[cid]._shipObjs=shipArr.map(s=>{
+function reconstructShips(cid,shipArr){
+  const c=combatants[cid]; if(!c) return;
+  c._shipObjs=shipArr.map(s=>{
     const type=SHIP_TYPES.find(t=>t.id===s.typeId);
     return {type,fx:s.fx,fy:s.fy,hp:s.hp,id:s.id,wrap:null,ownerId:cid};
   });
@@ -1582,10 +1667,10 @@ function serializeCombatants(){
 }
 
 function calcAvgLivingShips(){
-  const inGame=Object.values(combatants).filter(c=>c.inGame&&c._shipObjs);
-  if(!inGame.length) return 10;
-  const total=inGame.reduce((s,c)=>s+(c._shipObjs.filter(sh=>sh.hp>0).length),0);
-  return Math.max(1,Math.round(total/inGame.length));
+  const active=Object.values(combatants).filter(c=>c.inGame&&c._shipObjs&&c._shipObjs.length);
+  if(!active.length) return 10;
+  const total=active.reduce((s,c)=>s+c._shipObjs.filter(sh=>sh.hp>0).length,0);
+  return Math.max(1,Math.round(total/active.length));
 }
 
 function countLivingShips(cid){
@@ -1598,18 +1683,17 @@ function getTurnOrder(){
   return Object.keys(combatants).filter(id=>combatants[id]&&combatants[id].inGame);
 }
 
-function injectIntoTurnOrder(newId){
-  // Will be picked up next time turn advances
-}
-
 function advanceTurn(fromId){
   const order=getTurnOrder();
   if(!order.length) return;
   const idx=order.indexOf(fromId);
-  const nextId=order[(idx+1)%order.length];
-  activeTurnId=nextId;
-  broadcastAll({type:'turn_order_update',activeTurnId,turnOrder:order});
+  activeTurnId=order[(idx+1)%order.length];
+  broadcastAll({type:'turn_update',activeTurnId});
   renderOnlineGame();
+}
+
+function injectTurnAfterCurrent(newId){
+  // newId will be included automatically via getTurnOrder() since inGame=true
 }
 
 function onPeerLeft(pid){
@@ -1619,93 +1703,85 @@ function onPeerLeft(pid){
   renderOnlineGame();
 }
 
-/* ── Battle start ── */
 function onBattleStart(msg){
-  // Merge combatants
   if(msg.combatants) Object.keys(msg.combatants).forEach(id=>{
     combatants[id]={...(combatants[id]||{}),...msg.combatants[id]};
   });
   activeTurnId=msg.activeTurnId;
 
-  // Reconstruct ship objects
   if(msg.allShips){
-    Object.entries(msg.allShips).forEach(([id,arr])=>{
-      reconstructShipsForCombatant(id,arr);
-    });
+    Object.entries(msg.allShips).forEach(([id,arr])=>{ reconstructShips(id,arr); });
   }
 
   phase='game'; history=[]; score={1:0,2:0}; remaining={1:[],2:[]};
   [pTop,pBot].forEach(p=>p.querySelectorAll('.mk,.mini-exp,.shot-mk,.impact-mk').forEach(d=>d.remove()));
 
-  // My ships = my combatant's ship objs → place in pBot
+  // My ships → pBot
   myOnlineShips=(combatants[myId]&&combatants[myId]._shipObjs)||[];
   myOnlineShips.forEach(s=>{
     if(!s.wrap){
-      const wrap=createShipEl(s,hex(2));
-      pBot.appendChild(wrap); positionShipEl(wrap,pBot,s.fx,s.fy);
-      s.wrap=wrap;
+      const w=createShipEl(s,hex(2));
+      pBot.appendChild(w); positionShipEl(w,pBot,s.fx,s.fy); s.wrap=w;
     }
     s.wrap.style.display='';
   });
 
-  // Enemy ships = opposite team → place in pTop
+  // Enemy ships → pTop
   buildEnemyDisplay();
-
+  showInviteButton();
   renderOnlineGame();
 }
 
 function buildEnemyDisplay(){
   enemyOnlineShips=[];
   Object.entries(combatants).forEach(([id,c])=>{
-    if(id===myId) return;
-    if(c.team===myTeam) return; // same team
-    if(c._shipObjs) enemyOnlineShips.push(...c._shipObjs);
+    if(id===myId||c.team===myTeam||!c._shipObjs) return;
+    enemyOnlineShips.push(...c._shipObjs);
   });
-  // Place in pTop
   enemyOnlineShips.forEach(s=>{
     if(!s.wrap){
-      const wrap=createShipEl(s,hex(1));
-      pTop.appendChild(wrap); positionShipEl(wrap,pTop,s.fx,s.fy);
-      s.wrap=wrap;
+      const w=createShipEl(s,hex(1));
+      pTop.appendChild(w); positionShipEl(w,pTop,s.fx,s.fy); s.wrap=w;
     }
     s.wrap.style.display='';
   });
 }
 
 function updateEnemyDisplay(){
-  // Re-add any new enemy ships
   Object.entries(combatants).forEach(([id,c])=>{
     if(id===myId||c.team===myTeam||!c._shipObjs) return;
     c._shipObjs.forEach(s=>{
-      if(!enemyOnlineShips.includes(s)) enemyOnlineShips.push(s);
-      if(!s.wrap){
-        const wrap=createShipEl(s,hex(1));
-        pTop.appendChild(wrap); positionShipEl(wrap,pTop,s.fx,s.fy);
-        s.wrap=wrap;
+      if(!enemyOnlineShips.includes(s)){
+        enemyOnlineShips.push(s);
+        const w=createShipEl(s,hex(1));
+        pTop.appendChild(w); positionShipEl(w,pTop,s.fx,s.fy); s.wrap=w;
       }
-      s.wrap.style.display='';
     });
   });
 }
 
-/* ── Render ── */
 function renderOnlineGame(){
   const myTurn=(activeTurnId===myId);
   pBot.classList.toggle('can-click',myTurn&&!firingLocked);
   pBot.classList.toggle('no-click',!myTurn||firingLocked);
   pTop.classList.add('no-click'); pTop.classList.remove('can-click');
   if(myTurn) firingLocked=false;
-
-  const turnName=combatants[activeTurnId]?combatants[activeTurnId].name:'...';
-  phaseMsg.innerHTML=myTurn
-    ?`<b style="color:${hex(2)}">Tu turno</b>`
-    :`<b style="color:var(--muted)">${turnName} dispara</b>`;
+  const nm=combatants[activeTurnId]?combatants[activeTurnId].name:'...';
+  phaseMsg.innerHTML=myTurn?`<b style="color:${hex(2)}">Tu turno</b>`:`<b style="color:var(--muted)">${nm} dispara</b>`;
 }
 
-/* ── Fire ── */
-function handleFireOnline(e,_player){
-  if(gameMode!=='online')return;
-  if(activeTurnId!==myId||firingLocked)return;
+function processShot(msg){
+  if(!msg.hitShipId) return;
+  const owner=combatants[msg.hitOwnerId];
+  if(owner&&owner._shipObjs){
+    const s=owner._shipObjs.find(s=>s.id===msg.hitShipId);
+    if(s) s.hp=Math.max(0,s.hp-1);
+  }
+}
+
+/* ── FIRE (online) ── */
+function handleFireOnline(e){
+  if(gameMode!=='online'||activeTurnId!==myId||firingLocked) return;
   firingLocked=true;
 
   const r=pBot.getBoundingClientRect();
@@ -1713,9 +1789,8 @@ function handleFireOnline(e,_player){
   const gfy=Math.min(1,Math.max(0,(e.clientY-r.top)/r.height));
 
   const rTop=pTop.getBoundingClientRect();
-  const sx=gfx*rTop.width, sy=(1-gfy)*rTop.height; // mirror coords in pTop
+  const sx=gfx*rTop.width, sy=(1-gfy)*rTop.height;
 
-  // Find hit
   let hitShip=null, bestDist=Infinity;
   enemyOnlineShips.filter(s=>s.hp>0).forEach(ship=>{
     const cx=ship.fx*rTop.width, cy=ship.fy*rTop.height;
@@ -1726,42 +1801,37 @@ function handleFireOnline(e,_player){
     }
   });
 
-  const isHit=hitShip!==null;
+  const isHit=!!hitShip;
 
-  // Visual feedback
-  const shotMk=document.createElement('div'); shotMk.className='mk shot-mk';
-  shotMk.style.left=(gfx*r.width)+'px'; shotMk.style.top=(gfy*r.height)+'px';
-  shotMk.appendChild(drawShotSVG(hex(2),isHit)); pBot.appendChild(shotMk);
+  // Visual
+  const sm=document.createElement('div');sm.className='mk shot-mk';
+  sm.style.left=(gfx*r.width)+'px';sm.style.top=(gfy*r.height)+'px';
+  sm.appendChild(drawShotSVG(hex(2),isHit));pBot.appendChild(sm);
 
   if(isHit){
     hitShip.hp--;
     redrawShipSVG(hitShip,hitShip.hp<=0?'#1a3060':hex(1));
     miniExplosion(pTop,sx,sy,hex(2));
-    const impMk=document.createElement('div'); impMk.className='mk impact-mk';
-    impMk.style.left=sx+'px'; impMk.style.top=sy+'px';
-    impMk.appendChild(drawImpactSVG(hex(2),true)); pTop.appendChild(impMk);
+    const im=document.createElement('div');im.className='mk impact-mk';
+    im.style.left=sx+'px';im.style.top=sy+'px';
+    im.appendChild(drawImpactSVG(hex(2),true));pTop.appendChild(im);
   }
 
-  // Send shot
   const shotMsg={type:'shot',fromId:myId,gfx,gfy,isHit,
     hitShipId:hitShip?hitShip.id:null,hitOwnerId:hitShip?hitShip.ownerId:null};
-  if(isHost){ broadcastAll(shotMsg,myId); processOnlineShot(shotMsg,myId); }
+  if(isHost){ broadcastAll(shotMsg,myId); processShot(shotMsg); }
   else hostSend(shotMsg);
 
   showToast('',isHit?'good':'bad',isHit?'🔥 Impacto':'❌ Fallo',1200);
 
-  // Win check
   if(enemyOnlineShips.every(s=>s.hp<=0)){
-    setTimeout(()=>{
-      if(isHost) broadcastAll({type:'game_over'});
-      showFinal();
-    },500); return;
+    setTimeout(()=>{ if(isHost) broadcastAll({type:'game_over'}); showFinal(); },500);
+    return;
   }
 
-  // Turn
   if(!isHit){
     setTimeout(()=>{
-      if(isHost){ advanceTurn(myId); }
+      if(isHost) advanceTurn(myId);
       else hostSend({type:'turn_done'});
       firingLocked=false;
     },1300);
@@ -1770,41 +1840,56 @@ function handleFireOnline(e,_player){
   }
 }
 
-/* ── Process shot received (host applies to model) ── */
-function processOnlineShot(msg,fromId){
-  if(!msg.hitShipId) return;
-  const owner=combatants[msg.hitOwnerId];
-  if(!owner||!owner._shipObjs) return;
-  const ship=owner._shipObjs.find(s=>s.id===msg.hitShipId);
-  if(ship) ship.hp=Math.max(0,ship.hp-1);
-}
-
-/* ── Apply shot from rival (non-shooter clients) ── */
 function applyRivalShot(msg){
   if(!msg.isHit||!msg.hitShipId) return;
   const shooter=combatants[msg.fromId];
   if(!shooter) return;
   if(shooter.team===myTeam){
-    // Ally shot an enemy — update our enemy display
-    const ship=enemyOnlineShips.find(s=>s.id===msg.hitShipId);
-    if(ship){
-      ship.hp=Math.max(0,ship.hp-1);
-      redrawShipSVG(ship,ship.hp<=0?'#1a3060':hex(1));
+    const s=enemyOnlineShips.find(s=>s.id===msg.hitShipId);
+    if(s){ s.hp=Math.max(0,s.hp-1); redrawShipSVG(s,s.hp<=0?'#1a3060':hex(1));
       const rTop=pTop.getBoundingClientRect();
-      miniExplosion(pTop,msg.gfx*rTop.width,(1-msg.gfy)*rTop.height,hex(2));
-    }
+      miniExplosion(pTop,msg.gfx*rTop.width,(1-msg.gfy)*rTop.height,hex(2)); }
   } else {
-    // Enemy shot one of us
-    const ship=myOnlineShips.find(s=>s.id===msg.hitShipId&&s.ownerId===myId);
-    if(ship){
-      ship.hp=Math.max(0,ship.hp-1);
-      redrawShipSVG(ship,ship.hp<=0?'#1a3060':hex(2));
+    const s=myOnlineShips.find(s=>s.id===msg.hitShipId&&s.ownerId===myId);
+    if(s){ s.hp=Math.max(0,s.hp-1); redrawShipSVG(s,s.hp<=0?'#1a3060':hex(2));
       const rBot=pBot.getBoundingClientRect();
-      miniExplosion(pBot,msg.gfx*rBot.width,msg.gfy*rBot.height,hex(1));
-    }
+      miniExplosion(pBot,msg.gfx*rBot.width,msg.gfy*rBot.height,hex(1)); }
   }
   renderOnlineGame();
 }
+
+/* ── Touch fire for online (pBot only) ── */
+pBot.addEventListener('touchstart',e=>{
+  if(phase==='game'&&gameMode==='online'&&activeTurnId===myId&&!firingLocked){
+    e.preventDefault();
+    aimActive=true;
+    const t=e.touches[0];
+    const pos=calcAimPos(t.clientX,t.clientY,2);
+    showCursor(pos.x,pos.y,hex(2));
+  }
+},{passive:false});
+
+pBot.addEventListener('touchmove',e=>{
+  if(!aimActive) return; e.preventDefault();
+  const t=e.touches[0];
+  const pos=calcAimPos(t.clientX,t.clientY,2);
+  showCursor(pos.x,pos.y,hex(2));
+},{passive:false});
+
+pBot.addEventListener('touchend',e=>{
+  if(!aimActive||gameMode!=='online'){hideCursor();return;}
+  e.preventDefault(); hideCursor();
+  const r=pBot.getBoundingClientRect();
+  const fx=Math.min(r.right-1,Math.max(r.left+1,aimClientX));
+  const fy=Math.min(r.bottom-1,Math.max(r.top+1,aimClientY));
+  handleFireOnline({clientX:fx,clientY:fy});
+},{passive:false});
+
+pBot.addEventListener('click',e=>{
+  if(Date.now()-lastTouch<600) return;
+  if(phase==='game'&&gameMode==='online'&&activeTurnId===myId&&!firingLocked)
+    handleFireOnline(e);
+});
 
 /* ═══════════════════════════════════════════════
    INIT
@@ -1818,22 +1903,25 @@ if(getUrlRoom()){
 document.getElementById('fo-replay').addEventListener('click',()=>{
   foOverlay.classList.remove('show');
   ships={1:[],2:[]};history=[];score={1:0,2:0};remaining={1:[],2:[]};
-  gameMode='local';myTeam='A';activeTurnId=null;
-  combatants={};myOnlineShips=[];enemyOnlineShips=[];battleStarted=false;
+  gameMode='local';myTeam='A';activeTurnId=null;battleStarted=false;
+  combatants={};myOnlineShips=[];enemyOnlineShips=[];
   if(peer){peer.destroy();peer=null;}
   hostConn=null;clientConns={};
   [pTop,pBot].forEach(p=>{
     p.style.opacity='';p.style.pointerEvents='';
     p.querySelectorAll('.mk,.mini-exp,.shot-mk,.impact-mk').forEach(d=>d.remove());
   });
+  const ib=document.getElementById('invite-btn'); if(ib) ib.remove();
   buildPips();refreshScores();
   lobbyStart.disabled=false;lobbyStart.textContent='Comenzar';lobbyStart.style.display='';
   lobbyStatus.textContent='';lobbyUrlBox.classList.remove('show');
   document.querySelectorAll('.mode-btn').forEach(b=>b.classList.remove('active'));
   document.getElementById('mode-local').classList.add('active');
   document.getElementById('game-shell').classList.remove('show');
-  const jo=document.getElementById('join-opts'); if(jo) jo.remove();
+  const jo=document.getElementById('join-box'); if(jo) jo.remove();
+  const pl=document.getElementById('lobby-player-list'); if(pl) pl.remove();
   lobbyEl.classList.remove('hide');
+  history.replace&&history.replace(location.pathname);
 });
 
 </script>
