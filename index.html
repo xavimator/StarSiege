@@ -620,37 +620,44 @@ function startPlacement(player){
   document.getElementById('rand-btn').onclick=(e)=>{e.stopPropagation();randomPlacement(player);};}
 
 function startTrainBattle(){
-  // Enemy ships go in pTop (player 1 slot)
-  ships[1]=[];
+  // Clear both panels
+  [1,2].forEach(p=>{ ships[p].forEach(s=>{ if(s.wrap)s.wrap.remove(); }); ships[p]=[]; });
+  [pTop,pBot].forEach(p=>p.querySelectorAll('.shot-mk,.impact-mk,.mk').forEach(d=>d.remove()));
+
+  // Enemy ships randomly in pTop (player 1 slot)
   const p1=panel(1);
-  const pw=panelW(p1), ph=panelH(p1);
-  SHIP_TYPES.forEach(tt=>{
-    for(let q=0;q<tt.quota;q++){
-      const hw=tt.w/2/pw+.02,hh=tt.h/2/ph+.02;
-      const fx=hw+Math.random()*(1-2*hw);
-      const fy=hh+Math.random()*(1-2*hh);
-      const ship={type:tt,fx,fy,hp:tt.hp,id:ships[1].length,wrap:null};
-      ships[1].push(ship);
-      const wrap=createShipEl(ship,hex(1));
-      p1.appendChild(wrap);
-      positionShipEl(wrap,p1,fx,fy);
-      ship.wrap=wrap;
-    }
+  requestAnimationFrame(()=>{
+    const pw=panelW(p1), ph=panelH(p1);
+    SHIP_TYPES.forEach(tt=>{
+      for(let q=0;q<tt.quota;q++){
+        const hw=tt.w/2/pw+.02, hh=tt.h/2/ph+.02;
+        const fx=hw+Math.random()*(1-2*hw);
+        const fy=hh+Math.random()*(1-2*hh);
+        const ship={type:tt,fx,fy,hp:tt.hp,id:ships[1].length,wrap:null};
+        ships[1].push(ship);
+        const wrap=createShipEl(ship,hex(1));
+        p1.appendChild(wrap); positionShipEl(wrap,p1,fx,fy);
+        ship.wrap=wrap;
+      }
+    });
+
+    // Human is player 2 (pBot), enemy is player 1 (pTop), enemy never shoots
+    phase='game'; history=[]; score={1:0,2:0};
+    remaining={ 1:[], 2:ships[1].map((_,i)=>i) };
+    currentPlayer=2;
+    buildPips(); refreshScores();
+    picker.classList.add('hide');
+
+    // Show enemy ships in pTop, hide pBot ships (none)
+    ships[1].forEach(s=>{ if(s.wrap) s.wrap.style.display=''; });
+
+    // Enable pBot for firing
+    pTop.classList.add('no-click'); pTop.classList.remove('can-click');
+    pBot.classList.remove('no-click'); pBot.classList.add('can-click');
+
+    firingLocked=true;
+    setTimeout(()=>{ firingLocked=false; }, 350);
   });
-  // Human is player 2 (pBot), always fires, enemy (player 1) never shoots back
-  phase='game';history=[];score={1:0,2:0};
-  [1,2].forEach(p=>{panel(p).querySelectorAll('.shot-mk,.impact-mk').forEach(d=>d.remove());});
-  [1,2].forEach(p=>ships[p].forEach(s=>{ if(s.wrap) s.wrap.style.display='none'; }));
-  remaining={
-    1:[], // enemy never shoots
-    2:ships[1].map((_,i)=>i) // human targets enemy ships
-  };
-  currentPlayer=2;
-  buildPips();refreshScores();
-  picker.classList.add('hide');
-  firingLocked=true;
-  renderGamePanels();
-  setTimeout(()=>{ firingLocked=false; },350);
 }
 
 function randomPlacement(player){
@@ -1077,30 +1084,25 @@ function showFinal(){
   else{fw.textContent='⚔ Empate';fw.style.color='#a8d4ff';}
   foOverlay.classList.add('show');}
 
-document.getElementById('fo-replay').addEventListener('click',()=>{
-  foOverlay.classList.remove('show');
-  ships={1:[],2:[]};history=[];score={1:0,2:0};remaining={1:[],2:[]};
-  gameMode='local';myOnlinePlayer=1;onlineReady={1:false,2:false};
-  if(peer){peer.destroy();peer=null;conn=null;}
-  [pTop,pBot].forEach(p=>p.querySelectorAll('.mk,.mini-exp').forEach(d=>d.remove()));
-  [pTop,pBot].forEach(p=>{p.style.opacity='';p.style.pointerEvents='';});
-  buildPips();refreshScores();
-  document.getElementById('game-shell').classList.remove('show');
-  lobbyStart.disabled=false;lobbyStart.textContent='Comenzar';
-  lobbyStatus.textContent='';lobbyUrlBox.classList.remove('show');
-  document.querySelectorAll('.mode-btn').forEach(b=>b.classList.remove('active'));
-  document.getElementById('mode-local').classList.add('active');
-  lobbyEl.classList.remove('hide');
-});
+/* fo-replay and gameMode handled in LOBBY & ONLINE section */
 
 /* ══════════════ LOBBY & ONLINE ══════════════ */
-let gameMode='local'; // 'local' | 'train' | 'online'
+let gameMode='local';
 let myName='Comandante';
-let peer=null, conn=null;
-let myOnlinePlayer=1; // which player am I online (1 or 2)
-let onlineReady={1:false,2:false};
-let onlineShipsSent=false;
 
+/* ── Peer state ── */
+let peer=null;
+let isHost=false;
+let myId=null;          // my PeerJS id
+let roomId=null;
+let peers={};           // peerId → DataConnection (host keeps all; client keeps host conn)
+let players={};         // peerId → {name, team, ships:[], remaining:[], score:0, ready:false}
+let myTeam=null;        // 'A' or 'B'
+let placementTimer=null;
+let currentTurnId=null; // peerId whose turn it is
+let reinforcePending=null; // {fromId, fromName, asTeam}
+
+/* ── DOM ── */
 const lobbyEl=document.getElementById('lobby');
 const lobbyName=document.getElementById('lobby-name');
 const lobbyStatus=document.getElementById('lobby-status');
@@ -1109,6 +1111,665 @@ const lobbyUrlEl=document.getElementById('lobby-url');
 const lobbyStart=document.getElementById('lobby-start');
 const invasionAlert=document.getElementById('invasion-alert');
 const invasionCountdown=document.getElementById('invasion-countdown');
+
+/* ── Mode buttons ── */
+['local','train','battle'].forEach(m=>{
+  document.getElementById('mode-'+m).addEventListener('click',()=>{
+    document.querySelectorAll('.mode-btn').forEach(b=>b.classList.remove('active'));
+    document.getElementById('mode-'+m).classList.add('active');
+    gameMode=m==='battle'?'online':m;
+    lobbyUrlBox.classList.remove('show');
+    lobbyStatus.textContent='';
+    lobbyStart.textContent='Comenzar';
+    lobbyStart.disabled=false;
+  });
+});
+
+document.getElementById('lobby-copy').addEventListener('click',()=>{
+  navigator.clipboard.writeText(lobbyUrlEl.textContent).then(()=>{
+    document.getElementById('lobby-copy').textContent='✓ Copiado';
+    setTimeout(()=>document.getElementById('lobby-copy').textContent='📋 Copiar enlace',2000);
+  });
+});
+
+lobbyStart.addEventListener('click',()=>{
+  myName=(lobbyName.value.trim()||'Comandante').slice(0,16);
+  if(gameMode==='local'){
+    lobbyEl.classList.add('hide');
+    document.getElementById('game-shell').classList.add('show');
+    buildPips();showPlayerLabel(1,()=>startPlacement(1));
+  } else if(gameMode==='train'){
+    lobbyEl.classList.add('hide');
+    document.getElementById('game-shell').classList.add('show');
+    startTrainingMode();
+  } else {
+    startOnlineMode();
+  }
+});
+
+function getUrlRoom(){ return new URLSearchParams(location.search).get('room'); }
+
+/* ═══════════════════════════════════════════════
+   TRAINING MODE
+═══════════════════════════════════════════════ */
+function startTrainingMode(){
+  initPeerForTraining();
+  buildPips();
+  showPlayerLabel(2,()=>startTrainBattle());
+}
+
+function initPeerForTraining(){
+  try{
+    if(typeof Peer==='undefined')return;
+    const rid='siege-'+Math.random().toString(36).slice(2,8);
+    peer=new Peer(rid,{debug:0});
+    peer.on('open',()=>{});
+    peer.on('connection',c=>{ c.on('open',()=>triggerInvasion()); });
+    peer.on('error',()=>{});
+  }catch(e){}
+}
+
+function triggerInvasion(){
+  invasionAlert.classList.add('show');
+  let n=3; invasionCountdown.textContent=n;
+  const iv=setInterval(()=>{
+    n--;
+    if(n<=0){ clearInterval(iv); invasionAlert.classList.remove('show'); }
+    else invasionCountdown.textContent=n;
+  },1000);
+}
+
+/* ═══════════════════════════════════════════════
+   ONLINE MODE — MULTI-PLAYER MESH (star via host)
+═══════════════════════════════════════════════ */
+function startOnlineMode(){
+  const roomParam=getUrlRoom();
+  if(roomParam){ joinRoom(roomParam); } else { hostRoom(); }
+}
+
+/* ── HOST ── */
+function hostRoom(){
+  lobbyStart.disabled=true;
+  lobbyStatus.textContent='Creando sala…';
+  isHost=true;
+  roomId='siege-'+Math.random().toString(36).slice(2,8);
+  peer=new Peer(roomId,{debug:0});
+  peer.on('open',id=>{
+    myId=id;
+    const url=location.origin+location.pathname+'?room='+id;
+    lobbyUrlEl.textContent=url;
+    lobbyUrlBox.classList.add('show');
+    lobbyStatus.textContent='Esperando jugadores… (tú eres el host)';
+    // Register host as a player
+    players[myId]={name:myName,team:'A',ships:[],remaining:[],score:0,ready:false};
+    myTeam='A';
+  });
+  peer.on('connection',c=>{
+    peers[c.peer]=c;
+    c.on('open',()=>{
+      // Send current player list to new joiner
+      broadcast({type:'room_state', players:serializePlayers(), hostId:myId}, c.peer);
+    });
+    c.on('data',raw=>hostRelay(raw,c.peer));
+    c.on('close',()=>{ delete peers[c.peer]; delete players[c.peer]; hostBroadcast({type:'player_left',id:c.peer}); });
+  });
+  peer.on('error',e=>{ lobbyStatus.textContent='Error: '+e.type; lobbyStart.disabled=false; });
+}
+
+/* ── JOIN ── */
+function joinRoom(rid){
+  lobbyStart.disabled=true;
+  lobbyStatus.textContent='Conectando…';
+  isHost=false;
+  roomId=rid;
+  peer=new Peer(undefined,{debug:0});
+  peer.on('open',id=>{
+    myId=id;
+    const c=peer.connect(rid,{reliable:true});
+    peers[rid]=c;
+    c.on('open',()=>{
+      send(rid,{type:'hello',name:myName,id:myId});
+      lobbyStatus.textContent='Conectado. Elige tu bando…';
+      showTeamPicker();
+    });
+    c.on('data',raw=>clientReceive(raw));
+    c.on('close',()=>{ lobbyStatus.textContent='Desconectado del host.'; });
+  });
+  peer.on('error',e=>{ lobbyStatus.textContent='Error: '+e.type; lobbyStart.disabled=false; });
+}
+
+/* ── TEAM PICKER (shown to joiners in lobby) ── */
+function showTeamPicker(){
+  // Replace lobby start button with team choice
+  lobbyStart.style.display='none';
+  const box=document.createElement('div');
+  box.id='team-picker';
+  box.style.cssText='display:flex;gap:10px;width:100%;max-width:300px;flex-direction:column;';
+  box.innerHTML=`
+    <div style="font-family:'Exo 2';font-weight:200;font-size:.7rem;letter-spacing:3px;color:#7ab0e8;text-transform:uppercase;text-align:center">Elige bando</div>
+    <div style="display:flex;gap:8px">
+      <button id="team-enemy" style="flex:1;padding:10px;font-family:'Exo 2';font-weight:200;font-size:.72rem;letter-spacing:2px;text-transform:uppercase;border:1px solid rgba(255,100,50,.4);background:rgba(255,100,50,.08);color:#ff9977;cursor:pointer;border-radius:2px;">⚔ Enemigo</button>
+      <button id="team-ally" style="flex:1;padding:10px;font-family:'Exo 2';font-weight:200;font-size:.72rem;letter-spacing:2px;text-transform:uppercase;border:1px solid rgba(80,200,180,.4);background:rgba(80,200,180,.08);color:#4ecdc4;cursor:pointer;border-radius:2px;">🛡 Refuerzos</button>
+    </div>
+    <div id="ally-pick" style="display:none;flex-direction:column;gap:5px">
+      <div style="font-family:'Exo 2';font-weight:200;font-size:.65rem;letter-spacing:2px;color:#5a8fd4;text-transform:uppercase;text-align:center">¿A quién reforzas?</div>
+      <div id="ally-list"></div>
+    </div>`;
+  lobbyEl.appendChild(box);
+
+  document.getElementById('team-enemy').addEventListener('click',()=>{
+    myTeam='B'; // enemy team
+    send(roomId,{type:'join_request',name:myName,id:myId,team:'B'});
+    box.innerHTML='<div style="color:#7ab0e8;font-family:Exo 2;font-size:.8rem;letter-spacing:2px">Entrando como enemigo…</div>';
+  });
+
+  document.getElementById('team-ally').addEventListener('click',()=>{
+    // Show list of current players to pick who to reinforce
+    const allyPick=document.getElementById('ally-pick');
+    allyPick.style.display='flex';
+    const list=document.getElementById('ally-list');
+    list.innerHTML='';
+    Object.entries(players).forEach(([pid,pl])=>{
+      const btn=document.createElement('button');
+      btn.style.cssText='padding:8px;margin:2px 0;font-family:Exo 2;font-weight:200;font-size:.68rem;letter-spacing:2px;text-transform:uppercase;border:1px solid rgba(168,212,255,.2);background:rgba(168,212,255,.05);color:#a8d4ff;cursor:pointer;border-radius:2px;width:100%';
+      btn.textContent='Reforzar a '+pl.name;
+      btn.addEventListener('click',()=>{
+        myTeam=pl.team;
+        send(roomId,{type:'reinforce_request',name:myName,id:myId,targetId:pid,team:pl.team});
+        box.innerHTML='<div style="color:#7ab0e8;font-family:Exo 2;font-size:.8rem;letter-spacing:2px">Esperando confirmación…</div>';
+      });
+      list.appendChild(btn);
+    });
+  });
+}
+
+/* ── HOST: relay messages ── */
+function hostRelay(raw,fromId){
+  let msg; try{msg=JSON.parse(raw);}catch{return;}
+  switch(msg.type){
+    case 'hello':
+      players[fromId]={name:msg.name,team:'?',ships:[],remaining:[],score:0,ready:false};
+      hostBroadcast({type:'player_list',players:serializePlayers()},fromId);
+      break;
+    case 'join_request':
+      players[fromId]={...(players[fromId]||{}),name:msg.name,team:msg.team,ships:[],remaining:[],score:0,ready:false};
+      send(fromId,{type:'join_confirmed',team:msg.team,roomId});
+      hostBroadcast({type:'player_list',players:serializePlayers()});
+      updateHostLobbyStatus();
+      break;
+    case 'reinforce_request':{
+      // Ask target player if they accept reinforcement
+      const target=msg.targetId;
+      if(peers[target]){
+        send(target,{type:'reinforce_ask',fromId,fromName:msg.name,team:msg.team});
+      } else if(target===myId){
+        // Target is host — show confirmation dialog
+        showReinforceConfirm({fromId,fromName:msg.name,team:msg.team});
+      }
+      break;
+    }
+    case 'reinforce_confirm':{
+      const joiner=msg.forId;
+      players[joiner]={...(players[joiner]||{}),team:msg.team};
+      // Send confirmation to joiner with ship count of ally
+      const ally=players[msg.allyId];
+      const allyShips=ally?ally.ships.length:10;
+      send(joiner,{type:'join_confirmed',team:msg.team,allyShips,roomId});
+      hostBroadcast({type:'player_list',players:serializePlayers()});
+      updateHostLobbyStatus();
+      break;
+    }
+    case 'reinforce_deny':
+      send(msg.forId,{type:'join_denied'});
+      break;
+    case 'ships_ready':
+      players[fromId].ships=msg.ships;
+      players[fromId].ready=true;
+      hostBroadcast({type:'player_ready',id:fromId});
+      // Check if all ready
+      if(Object.values(players).every(p=>p.ready)) hostStartBattle();
+      break;
+    case 'shot':
+      // Relay shot to everyone
+      hostBroadcast({...msg,fromId},fromId);
+      hostProcessShot(msg,fromId);
+      break;
+  }
+}
+
+/* ── CLIENT: receive from host ── */
+function clientReceive(raw){
+  let msg; try{msg=JSON.parse(raw);}catch{return;}
+  switch(msg.type){
+    case 'room_state':
+    case 'player_list':
+      Object.assign(players,msg.players);
+      updateLobbyPlayerList();
+      break;
+    case 'join_confirmed':
+      myTeam=msg.team;
+      if(msg.allyShips) myAllyShips=msg.allyShips;
+      send(roomId,{type:'join_request',name:myName,id:myId,team:myTeam});
+      lobbyStatus.textContent=`Bando: ${myTeam==='A'?'🛡 Aliados':'⚔ Enemigos'}`;
+      break;
+    case 'join_denied':
+      lobbyStatus.textContent='Refuerzo rechazado.';
+      showTeamPicker();
+      break;
+    case 'reinforce_ask':
+      showReinforceConfirm(msg);
+      break;
+    case 'player_ready':
+      players[msg.id]=(players[msg.id]||{});
+      players[msg.id].ready=true;
+      break;
+    case 'battle_start':
+      onBattleStart(msg);
+      break;
+    case 'shot':
+      onRivalShot(msg);
+      break;
+    case 'turn':
+      currentTurnId=msg.id;
+      renderOnlineGame();
+      break;
+    case 'player_left':
+      delete players[msg.id];
+      showToast('','',`📡 Jugador desconectado`,2000);
+      break;
+    case 'game_over':
+      showFinal();
+      break;
+  }
+}
+
+let myAllyShips=10;
+
+function showReinforceConfirm(msg){
+  const overlay=document.createElement('div');
+  overlay.style.cssText='position:fixed;inset:0;z-index:300;background:rgba(1,9,21,.95);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;';
+  overlay.innerHTML=`
+    <div style="font-family:'Exo 2';font-weight:100;font-style:italic;font-size:1.4rem;letter-spacing:5px;color:#a8d4ff;text-transform:uppercase;">Solicitud de refuerzo</div>
+    <div style="font-family:'Rajdhani';font-size:1rem;letter-spacing:2px;color:#e8f4ff;text-align:center;max-width:280px;"><b>${msg.fromName}</b> quiere unirse como refuerzo de tu equipo</div>
+    <div style="display:flex;gap:10px">
+      <button id="reinf-yes" style="padding:10px 20px;font-family:'Exo 2';font-weight:200;font-size:.75rem;letter-spacing:3px;text-transform:uppercase;border:1px solid rgba(80,200,180,.4);background:rgba(80,200,180,.1);color:#4ecdc4;cursor:pointer;border-radius:2px;">✓ Aceptar</button>
+      <button id="reinf-no" style="padding:10px 20px;font-family:'Exo 2';font-weight:200;font-size:.75rem;letter-spacing:3px;text-transform:uppercase;border:1px solid rgba(255,100,50,.3);background:rgba(255,100,50,.06);color:#ff9977;cursor:pointer;border-radius:2px;">✗ Rechazar</button>
+    </div>`;
+  document.body.appendChild(overlay);
+  document.getElementById('reinf-yes').addEventListener('click',()=>{
+    overlay.remove();
+    const allyId=myId;
+    if(isHost){
+      players[msg.fromId]={...(players[msg.fromId]||{}),team:msg.team};
+      const allyShips=players[allyId]?players[allyId].ships.length:10;
+      send(msg.fromId,{type:'join_confirmed',team:msg.team,allyShips,roomId});
+      hostBroadcast({type:'player_list',players:serializePlayers()});
+    } else {
+      send(roomId,{type:'reinforce_confirm',forId:msg.fromId,allyId,team:msg.team});
+    }
+  });
+  document.getElementById('reinf-no').addEventListener('click',()=>{
+    overlay.remove();
+    if(isHost) send(msg.fromId,{type:'join_denied'});
+    else send(roomId,{type:'reinforce_deny',forId:msg.fromId});
+  });
+}
+
+/* ── HELPERS ── */
+function send(toId,obj){ const c=peers[toId]; if(c&&c.open) c.send(JSON.stringify(obj)); }
+function broadcast(obj,excludeId){ Object.keys(peers).forEach(pid=>{ if(pid!==excludeId) send(pid,obj); }); }
+function hostBroadcast(obj,excludeId){ broadcast(obj,excludeId); }
+function serializePlayers(){
+  const out={};
+  Object.entries(players).forEach(([id,p])=>out[id]={name:p.name,team:p.team,score:p.score||0,ready:!!p.ready});
+  return out;
+}
+
+function updateHostLobbyStatus(){
+  const count=Object.keys(players).length;
+  lobbyStatus.textContent=`${count} jugador${count!==1?'es':''} en sala`;
+  // Show start button for host once at least 2 players
+  if(count>=2 && !document.getElementById('host-start-btn')){
+    const btn=document.createElement('button');
+    btn.id='host-start-btn';
+    btn.className='lobby-btn';
+    btn.style.cssText='background:rgba(168,212,255,.1);color:#a8d4ff;border:1px solid rgba(168,212,255,.2);margin-top:4px;max-width:300px;width:100%;';
+    btn.textContent='🚀 Iniciar batalla';
+    btn.addEventListener('click',()=>{
+      hostBroadcast({type:'force_start'});
+      hostBeginPlacement();
+    });
+    lobbyEl.appendChild(btn);
+  }
+}
+
+function updateLobbyPlayerList(){
+  lobbyStatus.textContent=Object.values(players).map(p=>`${p.name} (${p.team})`).join(' · ');
+}
+
+/* ── PLACEMENT PHASE ── */
+function hostBeginPlacement(){
+  lobbyEl.classList.add('hide');
+  document.getElementById('game-shell').classList.add('show');
+  hostBroadcast({type:'begin_placement'});
+  beginMyPlacement();
+}
+
+function beginMyPlacement(){
+  gameMode='online';
+  buildPips();
+  // Each device: own fleet in pBot, enemy in pTop
+  // Place ships in pBot (player 2 slot for rendering)
+  ships={1:[],2:[]};
+  history=[];score={1:0,2:0};remaining={1:[],2:[]};
+  [pTop,pBot].forEach(p=>p.querySelectorAll('.mk,.mini-exp').forEach(d=>d.remove()));
+
+  // Show 30s timer
+  startPlacementTimer(30,()=>{
+    // Auto-random if not done
+    if(!players[myId]||!players[myId].ready){
+      randomPlacement(2);
+    }
+  });
+
+  startPlacement(2); // place in pBot
+}
+
+let timerEl=null;
+function startPlacementTimer(secs,onDone){
+  if(timerEl) timerEl.remove();
+  timerEl=document.createElement('div');
+  timerEl.style.cssText='position:fixed;top:0;left:50%;transform:translateX(-50%);z-index:60;font-family:Exo 2;font-weight:100;font-size:1.4rem;letter-spacing:4px;color:#a8d4ff;padding:4px 14px;background:rgba(1,9,21,.8);border-bottom:1px solid rgba(80,130,220,.3);';
+  document.body.appendChild(timerEl);
+  let t=secs;
+  timerEl.textContent=t+'s';
+  placementTimer=setInterval(()=>{
+    t--;
+    timerEl.textContent=t+'s';
+    if(t<=0){ clearInterval(placementTimer); timerEl.remove(); timerEl=null; onDone(); }
+  },1000);
+}
+
+function stopPlacementTimer(){ if(placementTimer){ clearInterval(placementTimer); } if(timerEl){ timerEl.remove(); timerEl=null; } }
+
+/* Override placementDone for online — ships go in slot 2 (pBot) */
+const _origPlacementDone=window.placementDone;
+function placementDone(player){
+  if(gameMode==='online'){
+    stopPlacementTimer();
+    panel(player).classList.add('no-click');panel(player).classList.remove('can-click');
+    picker.classList.add('hide');
+    // Serialize my ships and send to host
+    const shipData=ships[player].map(s=>({typeId:s.type.id,fx:s.fx,fy:s.fy,hp:s.type.hp,id:s.id}));
+    players[myId]=(players[myId]||{});
+    players[myId].ships=shipData;
+    players[myId].ready=true;
+    if(isHost){
+      players[myId].ready=true;
+      if(Object.values(players).every(p=>p.ready)) hostStartBattle();
+      else lobbyStatus.textContent='Esperando a otros jugadores…';
+    } else {
+      send(roomId,{type:'ships_ready',ships:shipData});
+      showToast('','','⏳ Esperando rivales…',8000);
+    }
+  } else if(gameMode==='train'){
+    startTrainBattle();
+  } else {
+    if(player===1){ showPlayerLabel(2,()=>startPlacement(2)); }
+    else { startGame(); }
+  }
+}
+
+/* ── HOST: start battle ── */
+function hostStartBattle(){
+  // Build the global fleet: all team A ships vs all team B ships
+  // Each player is identified by peerId; their ships are stored in players[id].ships
+  // For rendering: we need to decide who renders whom
+  // Architecture: each device renders its own fleet (pBot) and one composite enemy fleet (pTop)
+  // The "enemy" of team A = all team B ships merged; enemy of team B = all team A ships merged
+
+  const teamAIds=Object.keys(players).filter(id=>players[id].team==='A');
+  const teamBIds=Object.keys(players).filter(id=>players[id].team==='B');
+
+  // Build turn order: alternate A-B-A-B...
+  const turnOrder=[];
+  const maxLen=Math.max(teamAIds.length,teamBIds.length);
+  for(let i=0;i<maxLen;i++){
+    if(teamAIds[i]) turnOrder.push(teamAIds[i]);
+    if(teamBIds[i]) turnOrder.push(teamBIds[i]);
+  }
+
+  currentTurnId=turnOrder[0];
+
+  hostBroadcast({
+    type:'battle_start',
+    players:serializePlayers(),
+    allShips:buildAllShipsPayload(),
+    turnOrder,
+    currentTurnId
+  });
+
+  // Host also starts
+  onBattleStart({
+    players:serializePlayers(),
+    allShips:buildAllShipsPayload(),
+    turnOrder,
+    currentTurnId
+  });
+}
+
+function buildAllShipsPayload(){
+  const out={};
+  Object.entries(players).forEach(([id,p])=>{ out[id]=p.ships||[]; });
+  return out;
+}
+
+/* ── ALL DEVICES: receive battle_start ── */
+let turnOrder=[];
+let allPlayerShips={}; // peerId → array of ship objects (reconstructed)
+let myEnemyShips=[];   // flat array of enemy ships I'm shooting at
+let myFleetShips=[];   // my own ships
+
+function onBattleStart(msg){
+  Object.assign(players,msg.players);
+  turnOrder=msg.turnOrder||[];
+  currentTurnId=msg.currentTurnId;
+
+  // Reconstruct all ship objects
+  allPlayerShips={};
+  Object.entries(msg.allShips).forEach(([pid,shipArr])=>{
+    allPlayerShips[pid]=shipArr.map(s=>{
+      const type=SHIP_TYPES.find(t=>t.id===s.typeId);
+      return {type,fx:s.fx,fy:s.fy,hp:s.hp,id:s.id,wrap:null,ownerId:pid};
+    });
+  });
+
+  // My fleet = my own ships
+  myFleetShips=allPlayerShips[myId]||[];
+
+  // Enemy fleet = all players of opposite team, merged
+  const myTm=players[myId]?players[myId].team:'A';
+  myEnemyShips=[];
+  Object.entries(allPlayerShips).forEach(([pid,sarr])=>{
+    if(players[pid]&&players[pid].team!==myTm) myEnemyShips.push(...sarr);
+  });
+
+  phase='game';history=[];score={1:0,2:0};
+
+  // Place DOM elements: my ships in pBot, enemy ships in pTop
+  [pTop,pBot].forEach(p=>p.querySelectorAll('.mk,.mini-exp,.shot-mk,.impact-mk').forEach(d=>d.remove()));
+  ships={1:[],2:[]};
+
+  myFleetShips.forEach(ship=>{
+    const wrap=createShipEl(ship,hex(2));
+    pBot.appendChild(wrap); positionShipEl(wrap,pBot,ship.fx,ship.fy);
+    ship.wrap=wrap; ship.panelSlot=2;
+  });
+
+  myEnemyShips.forEach(ship=>{
+    const wrap=createShipEl(ship,hex(1));
+    pTop.appendChild(wrap); positionShipEl(wrap,pTop,ship.fx,ship.fy);
+    ship.wrap=wrap; ship.panelSlot=1;
+  });
+
+  renderOnlineGame();
+}
+
+/* ── ONLINE GAME RENDER ── */
+function renderOnlineGame(){
+  const myTurn=(currentTurnId===myId);
+
+  // Show/hide ships
+  myFleetShips.forEach(s=>{ if(s.wrap) s.wrap.style.display=''; });
+  myEnemyShips.forEach(s=>{ if(s.wrap) s.wrap.style.display=s.hp>0?'':''; }); // always show, darken if sunk
+
+  // Enable pBot only on my turn
+  pBot.classList.toggle('can-click',myTurn);
+  pBot.classList.toggle('no-click',!myTurn);
+  pTop.classList.add('no-click');pTop.classList.remove('can-click');
+
+  firingLocked=false;
+  phaseMsg.innerHTML=myTurn?`<b style="color:${hex(2)}">Tu turno</b>`:`<b style="color:var(--muted)">${players[currentTurnId]?players[currentTurnId].name:'...'} dispara</b>`;
+}
+
+/* ── ONLINE FIRE ── */
+function handleFireOnline(e,player){
+  if(gameMode!=='online')return;
+  if(currentTurnId!==myId)return;
+  if(firingLocked)return;
+  firingLocked=true;
+
+  const r=pBot.getBoundingClientRect();
+  const gfx=Math.min(1,Math.max(0,(e.clientX-r.left)/r.width));
+  const gfy=Math.min(1,Math.max(0,(e.clientY-r.top)/r.height));
+
+  // Check hit against living enemy ships
+  const liveEnemies=myEnemyShips.filter(s=>s.hp>0);
+  let hitShip=null, bestDist=Infinity;
+  liveEnemies.forEach(ship=>{
+    // hitCheck uses rivalPanel coords — here pTop is enemy panel
+    const rTop=pTop.getBoundingClientRect();
+    const sx=gfx*rTop.width, sy=(1-gfy)*rTop.height;
+    const cx=ship.fx*rTop.width, cy=ship.fy*rTop.height;
+    const hw=ship.type.w/2, hh=ship.type.h/2;
+    const dx=Math.abs(sx-cx)/hw, dy=Math.abs(sy-cy)/hh;
+    const dist=Math.sqrt((sx-cx)**2+(sy-cy)**2);
+    if(dx<=1&&dy<=1&&dist<bestDist){ bestDist=dist; hitShip=ship; }
+  });
+
+  const isHit=hitShip!==null;
+
+  // Visual: shot mark in pBot, impact in pTop
+  const rBot=pBot.getBoundingClientRect();
+  const rTop=pTop.getBoundingClientRect();
+  const impX=gfx*rTop.width, impY=(1-gfy)*rTop.height;
+
+  const shotMk=document.createElement('div');shotMk.className='mk shot-mk';
+  shotMk.style.left=(gfx*rBot.width)+'px';shotMk.style.top=(gfy*rBot.height)+'px';
+  shotMk.appendChild(drawShotSVG(hex(2),isHit));pBot.appendChild(shotMk);
+
+  if(isHit){
+    hitShip.hp--;
+    redrawShipSVG(hitShip,hitShip.hp<=0?'#1a3060':hex(1));
+    miniExplosion(pTop,impX,impY,hex(2));
+    const impMk=document.createElement('div');impMk.className='mk impact-mk';
+    impMk.style.left=impX+'px';impMk.style.top=impY+'px';
+    impMk.appendChild(drawImpactSVG(hex(2),true));pTop.appendChild(impMk);
+  }
+
+  // Send shot to host/peers
+  const shotMsg={type:'shot',fromId:myId,gfx,gfy,isHit,hitShipId:hitShip?hitShip.id:null,hitOwnerId:hitShip?hitShip.ownerId:null};
+  if(isHost){ hostProcessShot(shotMsg,myId); broadcast(shotMsg); }
+  else send(roomId,shotMsg);
+
+  // Toast
+  showToast('',isHit?'good':'bad',isHit?'🔥 Impacto':'❌ Fallo',1200);
+
+  // Win check
+  const allEnemiesSunk=myEnemyShips.every(s=>s.hp<=0);
+  if(allEnemiesSunk){ setTimeout(()=>{ if(isHost) hostBroadcast({type:'game_over'}); showFinal(); },500); return; }
+
+  // Next turn
+  if(!isHit){
+    const idx=turnOrder.indexOf(myId);
+    const nextId=turnOrder[(idx+1)%turnOrder.length];
+    currentTurnId=nextId;
+    if(isHost) hostBroadcast({type:'turn',id:nextId});
+    setTimeout(()=>{ renderOnlineGame(); firingLocked=false; },1300);
+  } else {
+    setTimeout(()=>{ firingLocked=false; renderOnlineGame(); },1300);
+  }
+}
+
+/* ── HOST: process shot from any player ── */
+function hostProcessShot(msg,fromId){
+  if(msg.hitShipId==null) return;
+  // Find the ship in allPlayerShips
+  const ownerShips=allPlayerShips[msg.hitOwnerId]||[];
+  const ship=ownerShips.find(s=>s.id===msg.hitShipId);
+  if(ship) ship.hp--;
+}
+
+/* ── RIVAL SHOT (received by non-shooter) ── */
+function onRivalShot(msg){
+  // Find ship in our enemy list if we're on opposite team, or own fleet if targeted
+  const shooter=players[msg.fromId];
+  const myTm=players[myId]?players[myId].team:'A';
+
+  if(shooter&&shooter.team!==myTm){
+    // Enemy shot at our team — find in myFleetShips
+    const ship=myFleetShips.find(s=>s.id===msg.hitShipId&&s.ownerId===myId);
+    if(ship&&msg.isHit){
+      ship.hp--;
+      redrawShipSVG(ship,ship.hp<=0?'#1a3060':hex(2));
+      const rBot=pBot.getBoundingClientRect();
+      const impX=msg.gfx*rBot.width, impY=msg.gfy*rBot.height;
+      miniExplosion(pBot,impX,impY,hex(1));
+    }
+  } else if(shooter&&shooter.team===myTm){
+    // Ally shot — update enemy ship display
+    const ship=myEnemyShips.find(s=>s.id===msg.hitShipId);
+    if(ship&&msg.isHit){
+      ship.hp--;
+      redrawShipSVG(ship,ship.hp<=0?'#1a3060':hex(1));
+      const rTop=pTop.getBoundingClientRect();
+      miniExplosion(pTop,msg.gfx*rTop.width,(1-msg.gfy)*rTop.height,hex(2));
+    }
+  }
+  currentTurnId=msg.nextTurnId||currentTurnId;
+  renderOnlineGame();
+}
+
+/* clientReceive handles all incoming messages from host */
+
+/* ── INIT ── */
+buildPips();
+if(getUrlRoom()){
+  document.getElementById('mode-battle').click();
+  lobbyStatus.textContent='Unirse a la partida…';
+}
+
+document.getElementById('fo-replay').addEventListener('click',()=>{
+  foOverlay.classList.remove('show');
+  ships={1:[],2:[]};history=[];score={1:0,2:0};remaining={1:[],2:[]};
+  gameMode='local';myTeam=null;currentTurnId=null;turnOrder=[];
+  allPlayerShips={};myFleetShips=[];myEnemyShips=[];players={};
+  if(peer){peer.destroy();peer=null;}peers={};
+  [pTop,pBot].forEach(p=>{
+    p.style.opacity='';p.style.pointerEvents='';
+    p.querySelectorAll('.mk,.mini-exp,.shot-mk,.impact-mk').forEach(d=>d.remove());
+  });
+  buildPips();refreshScores();
+  lobbyStart.disabled=false;lobbyStart.textContent='Comenzar';
+  lobbyStatus.textContent='';lobbyUrlBox.classList.remove('show');
+  document.querySelectorAll('.mode-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('mode-local').classList.add('active');
+  document.getElementById('game-shell').classList.remove('show');
+  lobbyEl.classList.remove('hide');
+  const tp=document.getElementById('team-picker'); if(tp) tp.remove();
+  const hb=document.getElementById('host-start-btn'); if(hb) hb.remove();
+  lobbyStart.style.display='';
+});
 
 // Mode buttons
 ['local','train','battle'].forEach(m=>{
@@ -1152,7 +1813,9 @@ function getUrlRoom(){
 /* ── TRAINING MODE ── */
 function startTrainingMode(){
   initPeerForTraining();
-  buildPips();showPlayerLabel(2,()=>startPlacement(2));
+  buildPips();
+  // No placement — just show label then start battle directly
+  showPlayerLabel(2,()=>startTrainBattle());
 }
 
 function initPeerForTraining(){
@@ -1187,299 +1850,8 @@ function triggerInvasion(){
   },1000);
 }
 
-/* ── ONLINE MODE ── */
-function startOnlineMode(){
-  const roomParam=getUrlRoom();
-  if(roomParam){
-    // We are player 2 — joining
-    joinOnlineRoom(roomParam);
-  } else {
-    // We are player 1 — hosting
-    hostOnlineRoom();
-  }
-}
 
-function hostOnlineRoom(){
-  lobbyStart.disabled=true;
-  lobbyStatus.textContent='Creando sala…';
-  myOnlinePlayer=1;
-  const roomId='siege-'+Math.random().toString(36).slice(2,8);
-  peer=new Peer(roomId,{debug:0});
-  peer.on('open',id=>{
-    const url=location.origin+location.pathname+'?room='+id;
-    lobbyUrlEl.textContent=url;
-    lobbyUrlBox.classList.add('show');
-    lobbyStatus.textContent='Esperando al rival…';
-    lobbyStart.textContent='Esperando…';
-  });
-  peer.on('connection',c=>{
-    conn=c;
-    setupConnHandlers();
-    conn.on('open',()=>{
-      sendMsg({type:'welcome',myName,player:1});
-      lobbyStatus.textContent='¡Rival conectado! Comenzando…';
-      setTimeout(()=>{
-        lobbyEl.classList.add('hide');
-        document.getElementById('game-shell').classList.add('show');
-        startOnlinePlacement();
-      },800);
-    });
-  });
-  peer.on('error',e=>{ lobbyStatus.textContent='Error: '+e.type; lobbyStart.disabled=false; });
-}
-
-function joinOnlineRoom(roomId){
-  lobbyStart.disabled=true;
-  lobbyStatus.textContent='Conectando…';
-  myOnlinePlayer=2;
-  peer=new Peer(undefined,{debug:0});
-  peer.on('open',()=>{
-    conn=peer.connect(roomId,{reliable:true});
-    setupConnHandlers();
-    conn.on('open',()=>{
-      sendMsg({type:'welcome',myName,player:2});
-      lobbyStatus.textContent='¡Conectado! Comenzando…';
-      setTimeout(()=>{
-        lobbyEl.classList.add('hide');
-        document.getElementById('game-shell').classList.add('show');
-        startOnlinePlacement();
-      },800);
-    });
-    conn.on('error',e=>{ lobbyStatus.textContent='No se pudo conectar.'; lobbyStart.disabled=false; });
-  });
-  peer.on('error',e=>{ lobbyStatus.textContent='Error: '+e.type; lobbyStart.disabled=false; });
-}
-
-function setupConnHandlers(){
-  conn.on('data',onMsgReceived);
-  conn.on('close',()=>{
-    if(phase==='game')showToast('','','📡 Rival desconectado',3000);
-  });
-}
-
-function sendMsg(obj){ if(conn&&conn.open) conn.send(JSON.stringify(obj)); }
-
-/* ── ONLINE PLACEMENT (simultaneous) ── */
-function startOnlinePlacement(){
-  gameMode='online';
-  // Both players place at the same time on their own screen
-  // myOnlinePlayer determines which panel they see
-  buildPips();
-
-  // Each player only places on their own panel
-  // We repurpose the local placement but only for myOnlinePlayer
-  onlineShipsSent=false;
-  onlineReady={1:false,2:false};
-
-  // Override panel layout: only show own panel as active
-  showOnlineLayout();
-  startPlacement(myOnlinePlayer);
-}
-
-function showOnlineLayout(){
-  // In online mode the device belongs to one player
-  // Hide the rival panel label and dim it
-  rivalPanel(myOnlinePlayer).style.opacity='0.2';
-  rivalPanel(myOnlinePlayer).style.pointerEvents='none';
-}
-
-// Online placement done is handled inside placementDone() via gameMode check
-
-function onMsgReceived(raw){
-  let msg;try{msg=JSON.parse(raw);}catch{return;}
-  switch(msg.type){
-    case 'welcome':
-      // Store rival name
-      break;
-    case 'ships_ready':{
-      // Rival sent their ships — reconstruct them
-      const rivalPlayer=myOnlinePlayer===1?2:1;
-      ships[rivalPlayer]=msg.ships.map(s=>{
-        const type=SHIP_TYPES.find(t=>t.id===s.typeId);
-        return {type, fx:s.fx, fy:s.fy, hp:s.hp, id:s.id, wrap:null};
-      });
-      // Place ship DOM elements in rival panel
-      ships[rivalPlayer].forEach(ship=>{
-        const wrap=createShipEl(ship,hex(rivalPlayer));
-        rivalPanel(myOnlinePlayer).appendChild(wrap);
-        positionShipEl(wrap,rivalPanel(myOnlinePlayer),ship.fx,ship.fy);
-        ship.wrap=wrap;
-      });
-      onlineReady[rivalPlayer]=true;
-      if(onlineReady[1]&&onlineReady[2]) startOnlineBattle();
-      break;
-    }
-    case 'shot':{
-      // Rival fired at us — process it
-      processRivalShot(msg);
-      break;
-    }
-    case 'turn_change':
-      currentPlayer=msg.to;
-      renderGamePanelsOnline();
-      break;
-    case 'invasion_accepted':
-      switchToOnlineBattle();
-      break;
-    case 'game_over':
-      showFinal();
-      break;
-  }
-}
-
-function startOnlineBattle(){
-  phase='game';history=[];score={1:0,2:0};
-  remaining={
-    1:ships[2].map((_,i)=>i).filter(i=>ships[2][i].hp>0),
-    2:ships[1].map((_,i)=>i).filter(i=>ships[1][i].hp>0)};
-  buildPips();refreshScores();
-  // Player 1 always goes first in online
-  currentPlayer=1;
-  renderGamePanelsOnline();
-  if(myOnlinePlayer===1){
-    showToast('','','🎲 Empiezas tú',1800);
-  } else {
-    showToast('','','🎲 Empieza el rival',1800);
-  }
-}
-
-function switchToOnlineBattle(){
-  // Called when training player's session becomes a real battle
-  gameMode='online';
-  myOnlinePlayer=1;
-  onlineReady={1:false,2:false};
-  // Reset and start fresh online placement
-  ships={1:[],2:[]};history=[];score={1:0,2:0};remaining={1:[],2:[]};
-  [pTop,pBot].forEach(p=>p.querySelectorAll('.mk,.mini-exp').forEach(d=>d.remove()));
-  buildPips();refreshScores();
-  showOnlineLayout();
-  startPlacement(myOnlinePlayer);
-}
-
-/* Online rendering: you only fire from your own panel */
-function renderGamePanelsOnline(){
-  const me=myOnlinePlayer, rival=me===1?2:1;
-  const myP=panel(me), rivP=rivalPanel(me);
-
-  myP.querySelectorAll('.shot-mk,.impact-mk').forEach(d=>d.remove());
-  rivP.querySelectorAll('.shot-mk,.impact-mk').forEach(d=>d.remove());
-
-  ships[1].forEach(s=>{ if(s.wrap) s.wrap.style.display='none'; });
-  ships[2].forEach(s=>{ if(s.wrap) s.wrap.style.display='none'; });
-
-  // Show own ships in own panel (you can see your fleet)
-  ships[me].forEach(s=>{ if(s.wrap){ s.wrap.style.display=''; positionShipEl(s.wrap,myP,s.fx,s.fy); }});
-
-  // Show rival ships in rival panel
-  ships[rival].forEach(s=>{ if(s.wrap){ s.wrap.style.display=''; positionShipEl(s.wrap,rivP,s.fx,s.fy); }});
-
-  // Shot marks
-  history.filter(h=>h.player===me).forEach(h=>{
-    const r=myP.getBoundingClientRect();
-    const mk=document.createElement('div');mk.className='mk shot-mk';
-    mk.style.left=(h.gfx*r.width)+'px';mk.style.top=(h.gfy*r.height)+'px';
-    mk.appendChild(drawShotSVG(hex(me),h.hit));myP.appendChild(mk);});
-  history.filter(h=>h.player===rival).forEach(h=>{
-    const r=myP.getBoundingClientRect();
-    const mx=h.mirrorX, my2=h.mirrorY;
-    const mk=document.createElement('div');mk.className='mk impact-mk';
-    mk.style.left=mx+'px';mk.style.top=my2+'px';
-    mk.appendChild(drawImpactSVG(hex(rival),h.hit));myP.appendChild(mk);});
-  history.filter(h=>h.player===me).forEach(h=>{
-    const mk=document.createElement('div');mk.className='mk impact-mk';
-    mk.style.left=h.mirrorX+'px';mk.style.top=h.mirrorY+'px';
-    mk.appendChild(drawImpactSVG(hex(me),h.hit));rivP.appendChild(mk);});
-
-  // Enable my panel only when it's my turn
-  const myTurn=(currentPlayer===me);
-  myP.classList.toggle('can-click',myTurn);myP.classList.toggle('no-click',!myTurn);
-  rivP.classList.add('no-click');rivP.classList.remove('can-click');
-  firingLocked=false;
-}
-
-/* Intercept handleFire for online mode */
-const _origHandleFire=handleFire;
-function handleFireOnline(e,player){
-  if(gameMode!=='online'){ _origHandleFire(e,player); return; }
-  if(player!==myOnlinePlayer)return;
-  if(currentPlayer!==myOnlinePlayer)return;
-  if(firingLocked)return;
-
-  const rem=remaining[player];if(!rem.length)return;
-  const ownP=panel(player);
-  const r=ownP.getBoundingClientRect();
-  const gfx=Math.min(1,Math.max(0,(e.clientX-r.left)/r.width));
-  const gfy=Math.min(1,Math.max(0,(e.clientY-r.top)/r.height));
-
-  // Send shot to rival
-  sendMsg({type:'shot', gfx, gfy, player});
-
-  // Process locally
-  processShot(gfx,gfy,player,true);
-}
-
-function processRivalShot(msg){
-  const {gfx,gfy,player}=msg;
-  processShot(gfx,gfy,player,false);
-}
-
-function processShot(gfx,gfy,shootingPlayer,isMe){
-  const rem=remaining[shootingPlayer];
-  const rivShips=ships[shootingPlayer===1?2:1];
-  let bestHit=null,bestDist=Infinity;
-  rem.forEach(idx=>{
-    const ship=rivShips[idx];
-    const res=hitCheck(gfx,gfy,ship,shootingPlayer);
-    if(res.hit&&res.pxDist<bestDist){bestDist=res.pxDist;bestHit={idx,ship,res};}
-  });
-  const targetIdx=rem[0];
-  const displayErr=targetIdx!==undefined?hitCheck(gfx,gfy,rivShips[targetIdx],shootingPlayer).errPct:0;
-  const isHit=bestHit!==null;
-  const rivR=rivalPanel(shootingPlayer).getBoundingClientRect();
-  const mirrorX=gfx*rivR.width, mirrorY=mirrorFy(gfy)*rivR.height;
-  const entry={player:shootingPlayer,gfx,gfy,hit:isHit,errPct:displayErr,mirrorX,mirrorY,
-    hitShipIdx:isHit?bestHit.idx:null};
-  history.push(entry);
-
-  if(isHit){
-    const ship=bestHit.ship;ship.hp--;
-    const owner=shootingPlayer===1?2:1;
-    redrawShipSVG(ship,hex(owner));
-    miniExplosion(rivalPanel(shootingPlayer),mirrorX,mirrorY,hex(shootingPlayer));
-    if(ship.hp<=0){remaining[shootingPlayer]=remaining[shootingPlayer].filter(i=>i!==bestHit.idx);score[shootingPlayer]++;}
-    else if(ship.type.canMove){dodgeShip(ship,owner);}
-  }
-  refreshScores();
-  renderGamePanelsOnline();
-
-  if(remaining[1].length===0||remaining[2].length===0){
-    setTimeout(()=>{if(isMe)sendMsg({type:'game_over'});showFinal();},400);return;
-  }
-  if(!isHit){
-    currentPlayer=shootingPlayer===1?2:1;
-    renderGamePanelsOnline();
-    if(isMe)showToast(displayErr.toFixed(1)+'%','bad',`❌ Fallo`,1200);
-    else showToast('','',`⚡ Rival falla — tu turno`,1200);
-  } else {
-    if(isMe)showToast(displayErr.toFixed(1)+'%','good',`🔥 Impacto`,1200);
-    else showToast('','',`💥 ¡Te impactan!`,1200);
-  }
-}
-
-// Override pTop/pBot click handlers to route online shots
-pTop.addEventListener('click',e=>{
-  if(phase==='game'&&gameMode==='online'&&myOnlinePlayer===1&&currentPlayer===1) handleFireOnline(e,1);
-});
-pBot.addEventListener('click',e=>{
-  if(phase==='game'&&gameMode==='online'&&myOnlinePlayer===2&&currentPlayer===2) handleFireOnline(e,2);
-});
-
-/* ── INIT ── */
-buildPips();
-if(getUrlRoom()){
-  document.getElementById('mode-battle').click();
-  lobbyStatus.textContent='Unirse a la partida…';
-}
+/* ── INIT (end of file) ── */
 
 </script>
 </body>
