@@ -1837,7 +1837,7 @@ function placementDone(player){
     stopPlacementTimer();
     panel(player).classList.add('no-click');panel(player).classList.remove('can-click');
     picker.classList.add('hide');
-    const shipData=ships[player].map(s=>({typeId:s.type.id,fx:s.fx,fy:s.fy,hp:s.type.hp,id:s.id}));
+    const shipData=ships[player].map(s=>({typeId:s.type.id,fx:s.fx,fy:s.fy,hp:s.type.hp,id:s.id,angleDeg:s.angleDeg||0}));
     combatants[myId]=combatants[myId]||{id:myId,name:myName,team:myTeam,ships:[],_shipObjs:[],inGame:false,score:0};
     combatants[myId].ships=shipData;
     combatants[myId].inGame=true;
@@ -1884,7 +1884,7 @@ function reconstructShips(cid,shipArr){
   const c=combatants[cid]; if(!c) return;
   c._shipObjs=shipArr.map(s=>{
     const type=SHIP_TYPES.find(t=>t.id===s.typeId);
-    return {type,fx:s.fx,fy:s.fy,hp:s.hp,id:s.id,wrap:null,ownerId:cid};
+    return {type,fx:s.fx,fy:s.fy,hp:s.hp,id:s.id,wrap:null,ownerId:cid,angleDeg:s.angleDeg||0};
   });
 }
 
@@ -1939,6 +1939,11 @@ function onPeerLeft(pid){
   renderOnlineGame();
 }
 
+/* ── Team colour helpers ── */
+// Team A = host = orange (hex(1)), Team B = joiner = teal (hex(2))
+function myColor(){ return myTeam==='A'?hex(1):hex(2); }
+function enemyColor(){ return myTeam==='A'?hex(2):hex(1); }
+
 function onBattleStart(msg){
   if(msg.combatants) Object.keys(msg.combatants).forEach(id=>{
     combatants[id]={...(combatants[id]||{}),...msg.combatants[id]};
@@ -1952,17 +1957,17 @@ function onBattleStart(msg){
   phase='game'; history=[]; score={1:0,2:0}; remaining={1:[],2:[]};
   [pTop,pBot].forEach(p=>p.querySelectorAll('.mk,.mini-exp,.shot-mk,.impact-mk').forEach(d=>d.remove()));
 
-  // My ships → pBot
+  // My ships → pBot, in my team's colour
   myOnlineShips=(combatants[myId]&&combatants[myId]._shipObjs)||[];
   myOnlineShips.forEach(s=>{
     if(!s.wrap){
-      const w=createShipEl(s,hex(2));
+      const w=createShipEl(s,myColor());
       pBot.appendChild(w); positionShipEl(w,pBot,s.fx,s.fy); s.wrap=w;
     }
     s.wrap.style.display='';
   });
 
-  // Enemy ships → pTop
+  // Enemy ships → pTop, in enemy team's colour
   buildEnemyDisplay();
   showInviteButton();
   renderOnlineGame();
@@ -1972,11 +1977,12 @@ function buildEnemyDisplay(){
   enemyOnlineShips=[];
   Object.entries(combatants).forEach(([id,c])=>{
     if(id===myId||c.team===myTeam||!c._shipObjs) return;
+    c._shipObjs.forEach(s=>{ s.ownerId=id; });
     enemyOnlineShips.push(...c._shipObjs);
   });
   enemyOnlineShips.forEach(s=>{
     if(!s.wrap){
-      const w=createShipEl(s,hex(1));
+      const w=createShipEl(s,enemyColor());
       pTop.appendChild(w); positionShipEl(w,pTop,s.fx,s.fy); s.wrap=w;
     }
     s.wrap.style.display='';
@@ -1987,9 +1993,10 @@ function updateEnemyDisplay(){
   Object.entries(combatants).forEach(([id,c])=>{
     if(id===myId||c.team===myTeam||!c._shipObjs) return;
     c._shipObjs.forEach(s=>{
+      s.ownerId=id;
       if(!enemyOnlineShips.includes(s)){
         enemyOnlineShips.push(s);
-        const w=createShipEl(s,hex(1));
+        const w=createShipEl(s,enemyColor());
         pTop.appendChild(w); positionShipEl(w,pTop,s.fx,s.fy); s.wrap=w;
       }
     });
@@ -1998,12 +2005,15 @@ function updateEnemyDisplay(){
 
 function renderOnlineGame(){
   const myTurn=(activeTurnId===myId);
+  // Firing always from pBot upward
   pBot.classList.toggle('can-click',myTurn&&!firingLocked);
   pBot.classList.toggle('no-click',!myTurn||firingLocked);
   pTop.classList.add('no-click'); pTop.classList.remove('can-click');
   if(myTurn) firingLocked=false;
   const nm=combatants[activeTurnId]?combatants[activeTurnId].name:'...';
-  phaseMsg.innerHTML=myTurn?`<b style="color:${hex(2)}">Tu turno</b>`:`<b style="color:var(--muted)">${nm} dispara</b>`;
+  phaseMsg.innerHTML=myTurn
+    ?`<b style="color:${myColor()}">Tu turno</b>`
+    :`<b style="color:var(--muted)">${nm} dispara</b>`;
 }
 
 function processShot(msg){
@@ -2015,42 +2025,53 @@ function processShot(msg){
   }
 }
 
-/* ── FIRE (online) ── */
+/* ── FIRE (online) — always pBot → pTop ── */
 function handleFireOnline(e){
   if(gameMode!=='online'||activeTurnId!==myId||firingLocked) return;
   firingLocked=true;
 
+  // Shot origin: pBot (my panel, bottom)
   const r=pBot.getBoundingClientRect();
   const gfx=Math.min(1,Math.max(0,(e.clientX-r.left)/r.width));
   const gfy=Math.min(1,Math.max(0,(e.clientY-r.top)/r.height));
 
+  // Mirror into pTop (enemy panel, top): same x, flipped y
   const rTop=pTop.getBoundingClientRect();
   const sx=gfx*rTop.width, sy=(1-gfy)*rTop.height;
 
+  // Hit detection with rotation support
   let hitShip=null, bestDist=Infinity;
   enemyOnlineShips.filter(s=>s.hp>0).forEach(ship=>{
     const cx=ship.fx*rTop.width, cy=ship.fy*rTop.height;
+    let dx=sx-cx, dy=sy-cy;
+    if(ship.angleDeg){
+      const rad=-ship.angleDeg*Math.PI/180;
+      const rdx=dx*Math.cos(rad)-dy*Math.sin(rad);
+      const rdy=dx*Math.sin(rad)+dy*Math.cos(rad);
+      dx=rdx; dy=rdy;
+    }
     const hw=ship.type.w/2, hh=ship.type.h/2;
-    if(Math.abs(sx-cx)/hw<=1&&Math.abs(sy-cy)/hh<=1){
+    if(Math.abs(dx)<=hw&&Math.abs(dy)<=hh){
       const d=Math.sqrt((sx-cx)**2+(sy-cy)**2);
       if(d<bestDist){bestDist=d;hitShip=ship;}
     }
   });
 
   const isHit=!!hitShip;
+  const mc=myColor(), ec=enemyColor();
 
-  // Visual
-  const sm=document.createElement('div');sm.className='mk shot-mk';
+  // Shot mark on my panel (pBot)
+  const sm=document.createElement('div');sm.className='mk shot-mk no-transition';
   sm.style.left=(gfx*r.width)+'px';sm.style.top=(gfy*r.height)+'px';
-  sm.appendChild(drawShotSVG(hex(2),isHit));pBot.appendChild(sm);
+  sm.appendChild(drawShotSVG(mc,isHit));pBot.appendChild(sm);
 
   if(isHit){
     hitShip.hp--;
-    redrawShipSVG(hitShip,hitShip.hp<=0?'#1a3060':hex(1));
-    miniExplosion(pTop,sx,sy,hex(2));
-    const im=document.createElement('div');im.className='mk impact-mk';
+    redrawShipSVG(hitShip,hitShip.hp<=0?'#1a3060':ec);
+    miniExplosion(pTop,sx,sy,mc);
+    const im=document.createElement('div');im.className='mk impact-mk no-transition';
     im.style.left=sx+'px';im.style.top=sy+'px';
-    im.appendChild(drawImpactSVG(hex(2),true));pTop.appendChild(im);
+    im.appendChild(drawImpactSVG(mc,true));pTop.appendChild(im);
   }
 
   const shotMsg={type:'shot',fromId:myId,gfx,gfy,isHit,
@@ -2081,27 +2102,29 @@ function applyRivalShot(msg){
   const shooter=combatants[msg.fromId];
   if(!shooter) return;
   if(shooter.team===myTeam){
+    // Ally hit an enemy — update enemy ship in pTop
     const s=enemyOnlineShips.find(s=>s.id===msg.hitShipId);
-    if(s){ s.hp=Math.max(0,s.hp-1); redrawShipSVG(s,s.hp<=0?'#1a3060':hex(1));
+    if(s){ s.hp=Math.max(0,s.hp-1); redrawShipSVG(s,s.hp<=0?'#1a3060':enemyColor());
       const rTop=pTop.getBoundingClientRect();
-      miniExplosion(pTop,msg.gfx*rTop.width,(1-msg.gfy)*rTop.height,hex(2)); }
+      miniExplosion(pTop,msg.gfx*rTop.width,(1-msg.gfy)*rTop.height,myColor()); }
   } else {
-    const s=myOnlineShips.find(s=>s.id===msg.hitShipId&&s.ownerId===myId);
-    if(s){ s.hp=Math.max(0,s.hp-1); redrawShipSVG(s,s.hp<=0?'#1a3060':hex(2));
+    // Enemy hit me — update my ship in pBot
+    const s=myOnlineShips.find(s=>s.id===msg.hitShipId);
+    if(s){ s.hp=Math.max(0,s.hp-1); redrawShipSVG(s,s.hp<=0?'#1a3060':myColor());
       const rBot=pBot.getBoundingClientRect();
-      miniExplosion(pBot,msg.gfx*rBot.width,msg.gfy*rBot.height,hex(1)); }
+      miniExplosion(pBot,msg.gfx*rBot.width,msg.gfy*rBot.height,enemyColor()); }
   }
   renderOnlineGame();
 }
 
-/* ── Touch fire for online (pBot only) ── */
+/* ── Touch fire for online (pBot only, always upward) ── */
 pBot.addEventListener('touchstart',e=>{
   if(phase==='game'&&gameMode==='online'&&activeTurnId===myId&&!firingLocked){
     e.preventDefault();
     aimActive=true;
     const t=e.touches[0];
     const pos=calcAimPos(t.clientX,t.clientY,2);
-    showCursor(pos.x,pos.y,hex(2));
+    showCursor(pos.x,pos.y,myColor());
   }
 },{passive:false});
 
@@ -2109,7 +2132,7 @@ pBot.addEventListener('touchmove',e=>{
   if(!aimActive) return; e.preventDefault();
   const t=e.touches[0];
   const pos=calcAimPos(t.clientX,t.clientY,2);
-  showCursor(pos.x,pos.y,hex(2));
+  showCursor(pos.x,pos.y,myColor());
 },{passive:false});
 
 pBot.addEventListener('touchend',e=>{
