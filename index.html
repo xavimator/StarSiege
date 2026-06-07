@@ -1254,7 +1254,7 @@ function showToast(errText,cls,msg,dur){
   toastErr.className=cls||'';
   if(!cls)toastErr.style.color=errText.startsWith('J')?hex(parseInt(errText[1])):'var(--text)';
   else toastErr.style.color='';
-  toastMsg.textContent=msg;
+  toastMsg.innerHTML=msg;
   toastEl.classList.add('show');
   clearTimeout(toastTimer);
   toastTimer=setTimeout(()=>toastEl.classList.remove('show'),dur||1400);}
@@ -1432,14 +1432,16 @@ function hostCreate(){
 
   peer.on('open',id=>{
     myId=id;
-    myRoomId=id; // room code = host's peer ID
+    myRoomId=id;
     combatants[myId]={id:myId,name:myName,team:'A',ships:[],_shipObjs:[],inGame:false,score:0};
 
-    const url=location.origin+location.pathname+'?room='+id;
-    lobbyUrlEl.textContent=url;
-    lobbyUrlBox.classList.add('show');
-    showLobbyPlayerList();
-    lobbyStatus.textContent='Esperando jugadores…';
+    // Go directly to placement — no waiting in lobby
+    lobbyEl.classList.add('hide');
+    document.getElementById('game-shell').classList.add('show');
+    buildPips();
+    startPlacement(2); // online always uses panel 2 (bottom)
+    startPlacementTimer(30,()=>{ if(ships[2].length<10) randomPlacement(2); });
+    showInviteButton();
   });
 
   peer.on('connection',c=>{
@@ -1499,9 +1501,7 @@ function hostReceive(raw,fromId){
   switch(msg.type){
 
     case 'hello':{
-      // New player arrived — register and send them current state
       combatants[fromId]={id:fromId,name:msg.name,team:'?',ships:[],_shipObjs:[],inGame:false,score:0};
-      // Send current player list to new joiner so they can choose
       sendTo(fromId,{
         type:'room_state',
         players:serializeCombatants(),
@@ -1509,10 +1509,12 @@ function hostReceive(raw,fromId){
         battleStarted,
         avgShips:calcAvgLivingShips()
       });
-      // Notify everyone else
       broadcastAll({type:'player_joined',player:{id:fromId,name:msg.name,team:'?'}}, fromId);
-      // Update host lobby list
       showLobbyPlayerList();
+      // Alert host that an enemy has joined
+      if(phase==='game'||combatants[myId].inGame){
+        showToast('','tg1','⚔️ ¡Ataque enemigo!',2500);
+      }
       break;
     }
 
@@ -1644,7 +1646,12 @@ function clientReceive(raw){
 
     case 'go_place':{
       myTeam=msg.team;
+      const teamColor=msg.team==='A'?'var(--c1)':'var(--c2)';
       showArmingAlert();
+      // Small encouraging message for the joiner
+      setTimeout(()=>{
+        showToast('','','<span style="color:'+teamColor+'">Adelante Comandante</span>',2000);
+      },400);
       setTimeout(()=>launchPlacement(msg.quota,msg.team), 3200);
       break;
     }
@@ -1783,9 +1790,7 @@ let placementTimerIv=null;
 let onlineShipQuota=10;
 
 function hostGoPlace(){
-  if(combatants[myId]&&combatants[myId].inGame) return;
-  showArmingAlert();
-  setTimeout(()=>launchPlacement(10,'A'),3200);
+  // Host already went to placement directly on room open — nothing to do
 }
 
 function launchPlacement(quota, team){
