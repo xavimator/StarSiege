@@ -383,7 +383,7 @@ body{
 <div id="nebula"></div>
 <div id="game-shell">
 <div id="topbar">
-  <div id="game-title">Star Siege</div>
+  <div id="game-title">Star Siege<button id="invite-btn" style="display:none;margin-left:8px;background:transparent;border:none;color:#a8d4ff;font-size:.75rem;cursor:pointer;letter-spacing:1px;opacity:.55;padding:0;vertical-align:middle;" title="Copiar enlace">🔗</button></div>
   <div id="scores">
     <div class="sb" id="sb1"><span class="sb-lbl">J1</span><span class="sb-val">0</span></div>
     <div id="turn-bar"></div>
@@ -1435,12 +1435,12 @@ function hostCreate(){
     myRoomId=id;
     combatants[myId]={id:myId,name:myName,team:'A',ships:[],_shipObjs:[],inGame:false,score:0};
 
-    // Go directly to placement — no waiting in lobby
+    // Host (team A) places in pTop (slot 1)
     lobbyEl.classList.add('hide');
     document.getElementById('game-shell').classList.add('show');
     buildPips();
-    startPlacement(2); // online always uses panel 2 (bottom)
-    startPlacementTimer(30,()=>{ if(ships[2].length<10) randomPlacement(2); });
+    startPlacement(1);
+    startPlacementTimer(30,()=>{ if(ships[1].length<10) randomPlacement(1); });
     showInviteButton();
   });
 
@@ -1805,10 +1805,11 @@ function launchPlacement(quota, team){
   lobbyStart.style.display='';
   document.getElementById('game-shell').classList.add('show');
   buildPips();
-  startPlacement(2);
-  startPlacementTimer(30,()=>{
-    if(ships[2].length<onlineShipQuota) randomPlacement(2);
-  });
+  // Host (team A) places in pTop (slot 1), joiner (team B) places in pBot (slot 2)
+  const mySlot=myTeam==='A'?1:2;
+  startPlacement(mySlot);
+  startPlacementTimer(30,()=>{ if(ships[mySlot].length<onlineShipQuota) randomPlacement(mySlot); });
+  showInviteButton();
 }
 
 function startPlacementTimer(secs,onDone){
@@ -1835,9 +1836,10 @@ function stopPlacementTimer(){
 function placementDone(player){
   if(gameMode==='online'){
     stopPlacementTimer();
-    panel(player).classList.add('no-click');panel(player).classList.remove('can-click');
+    const mySlot=myTeam==='A'?1:2;
+    panel(mySlot).classList.add('no-click');panel(mySlot).classList.remove('can-click');
     picker.classList.add('hide');
-    const shipData=ships[player].map(s=>({typeId:s.type.id,fx:s.fx,fy:s.fy,hp:s.type.hp,id:s.id,angleDeg:s.angleDeg||0}));
+    const shipData=ships[mySlot].map(s=>({typeId:s.type.id,fx:s.fx,fy:s.fy,hp:s.type.hp,id:s.id,angleDeg:s.angleDeg||0}));
     combatants[myId]=combatants[myId]||{id:myId,name:myName,team:myTeam,ships:[],_shipObjs:[],inGame:false,score:0};
     combatants[myId].ships=shipData;
     combatants[myId].inGame=true;
@@ -1858,23 +1860,18 @@ function placementDone(player){
   }
 }
 
-/* ── Invite button (in-game, online mode) ── */
+/* ── Invite button (topbar, online mode) ── */
 function showInviteButton(){
-  if(document.getElementById('invite-btn')) return;
-  const btn=document.createElement('button');
-  btn.id='invite-btn';
-  btn.style.cssText='position:fixed;bottom:70px;right:10px;z-index:60;font-family:Exo 2;font-weight:200;font-size:.6rem;letter-spacing:2px;text-transform:uppercase;padding:6px 10px;border:1px solid rgba(168,212,255,.25);background:rgba(1,9,21,.85);color:#a8d4ff;cursor:pointer;border-radius:2px;';
-  btn.textContent='🔗 Invitar';
-  btn.addEventListener('click',()=>{
+  const btn=document.getElementById('invite-btn');
+  if(!btn||btn.style.display==='inline') return;
+  btn.style.display='inline';
+  btn.onclick=()=>{
     const url=location.origin+location.pathname+'?room='+myRoomId;
     navigator.clipboard.writeText(url).then(()=>{
-      btn.textContent='✓ Copiado';
-      setTimeout(()=>btn.textContent='🔗 Invitar',2000);
-    }).catch(()=>{
-      prompt('Enlace de invitación:',url);
-    });
-  });
-  document.body.appendChild(btn);
+      const was=btn.textContent; btn.textContent='✓';
+      setTimeout(()=>btn.textContent=was,1800);
+    }).catch(()=>{ prompt('Enlace:',url); });
+  };
 }
 
 /* ═══════════════════════════════════════════════
@@ -1957,17 +1954,20 @@ function onBattleStart(msg){
   phase='game'; history=[]; score={1:0,2:0}; remaining={1:[],2:[]};
   [pTop,pBot].forEach(p=>p.querySelectorAll('.mk,.mini-exp,.shot-mk,.impact-mk').forEach(d=>d.remove()));
 
-  // My ships → pBot, in my team's colour
+  // My ships → always pBot, mirrored vertically if I placed in pTop (team A)
   myOnlineShips=(combatants[myId]&&combatants[myId]._shipObjs)||[];
   myOnlineShips.forEach(s=>{
     if(!s.wrap){
+      // Team A placed in pTop → mirror fy to show in pBot
+      const displayFy=myTeam==='A'?1-s.fy:s.fy;
       const w=createShipEl(s,myColor());
-      pBot.appendChild(w); positionShipEl(w,pBot,s.fx,s.fy); s.wrap=w;
+      pBot.appendChild(w); positionShipEl(w,pBot,s.fx,displayFy); s.wrap=w;
+      s._displayFy=displayFy;
     }
     s.wrap.style.display='';
   });
 
-  // Enemy ships → pTop, in enemy team's colour
+  // Enemy ships → always pTop, mirrored vertically if enemy placed in pBot (team B)
   buildEnemyDisplay();
   showInviteButton();
   renderOnlineGame();
@@ -1982,8 +1982,12 @@ function buildEnemyDisplay(){
   });
   enemyOnlineShips.forEach(s=>{
     if(!s.wrap){
+      // Enemy team B placed in pBot → mirror fy to show in pTop
+      const enemyTeam=Object.values(combatants).find(c=>c.id===s.ownerId)?.team||'B';
+      const displayFy=enemyTeam==='B'?1-s.fy:s.fy;
       const w=createShipEl(s,enemyColor());
-      pTop.appendChild(w); positionShipEl(w,pTop,s.fx,s.fy); s.wrap=w;
+      pTop.appendChild(w); positionShipEl(w,pTop,s.fx,displayFy); s.wrap=w;
+      s._displayFy=displayFy;
     }
     s.wrap.style.display='';
   });
@@ -1996,8 +2000,11 @@ function updateEnemyDisplay(){
       s.ownerId=id;
       if(!enemyOnlineShips.includes(s)){
         enemyOnlineShips.push(s);
+        const enemyTeam=c.team||'B';
+        const displayFy=enemyTeam==='B'?1-s.fy:s.fy;
         const w=createShipEl(s,enemyColor());
-        pTop.appendChild(w); positionShipEl(w,pTop,s.fx,s.fy); s.wrap=w;
+        pTop.appendChild(w); positionShipEl(w,pTop,s.fx,displayFy); s.wrap=w;
+        s._displayFy=displayFy;
       }
     });
   });
@@ -2039,10 +2046,11 @@ function handleFireOnline(e){
   const rTop=pTop.getBoundingClientRect();
   const sx=gfx*rTop.width, sy=(1-gfy)*rTop.height;
 
-  // Hit detection with rotation support
+  // Hit detection — use _displayFy (visual position in pTop after mirroring)
   let hitShip=null, bestDist=Infinity;
   enemyOnlineShips.filter(s=>s.hp>0).forEach(ship=>{
-    const cx=ship.fx*rTop.width, cy=ship.fy*rTop.height;
+    const displayFy=ship._displayFy!==undefined?ship._displayFy:ship.fy;
+    const cx=ship.fx*rTop.width, cy=displayFy*rTop.height;
     let dx=sx-cx, dy=sy-cy;
     if(ship.angleDeg){
       const rad=-ship.angleDeg*Math.PI/180;
@@ -2098,21 +2106,32 @@ function handleFireOnline(e){
 }
 
 function applyRivalShot(msg){
-  if(!msg.isHit||!msg.hitShipId) return;
   const shooter=combatants[msg.fromId];
   if(!shooter) return;
-  if(shooter.team===myTeam){
-    // Ally hit an enemy — update enemy ship in pTop
-    const s=enemyOnlineShips.find(s=>s.id===msg.hitShipId);
-    if(s){ s.hp=Math.max(0,s.hp-1); redrawShipSVG(s,s.hp<=0?'#1a3060':enemyColor());
-      const rTop=pTop.getBoundingClientRect();
-      miniExplosion(pTop,msg.gfx*rTop.width,(1-msg.gfy)*rTop.height,myColor()); }
-  } else {
-    // Enemy hit me — update my ship in pBot
-    const s=myOnlineShips.find(s=>s.id===msg.hitShipId);
-    if(s){ s.hp=Math.max(0,s.hp-1); redrawShipSVG(s,s.hp<=0?'#1a3060':myColor());
-      const rBot=pBot.getBoundingClientRect();
-      miniExplosion(pBot,msg.gfx*rBot.width,msg.gfy*rBot.height,enemyColor()); }
+
+  if(msg.isHit&&msg.hitShipId){
+    if(shooter.team===myTeam){
+      // Ally hit an enemy — update enemy ship in pTop
+      const s=enemyOnlineShips.find(s=>s.id===msg.hitShipId);
+      if(s){
+        s.hp=Math.max(0,s.hp-1);
+        redrawShipSVG(s,s.hp<=0?'#1a3060':enemyColor());
+        const rTop=pTop.getBoundingClientRect();
+        const displayFy=s._displayFy!==undefined?s._displayFy:s.fy;
+        miniExplosion(pTop,msg.gfx*rTop.width,displayFy*rTop.height,myColor());
+      }
+    } else {
+      // Enemy hit me — update my ship in pBot
+      const s=myOnlineShips.find(s=>s.id===msg.hitShipId);
+      if(s){
+        s.hp=Math.max(0,s.hp-1);
+        redrawShipSVG(s,s.hp<=0?'#1a3060':myColor());
+        const rBot=pBot.getBoundingClientRect();
+        // Enemy fires from their pBot with gfx/gfy, mirrors to our pBot display position
+        const displayFy=s._displayFy!==undefined?s._displayFy:s.fy;
+        miniExplosion(pBot,msg.gfx*rBot.width,displayFy*rBot.height,enemyColor());
+      }
+    }
   }
   renderOnlineGame();
 }
