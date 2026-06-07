@@ -346,11 +346,11 @@ body{
 <div id="lobby">
   <div id="lobby-title">Star Siege</div>
   <div class="lobby-field">
-    <div class="lobby-lbl" id="lbl-name1">Nombre del comandante</div>
+    <div class="lobby-lbl" id="lbl-name1">Comandante Rojo</div>
     <input class="lobby-input" id="lobby-name" placeholder="Jugador 1" maxlength="16" autocomplete="off"/>
   </div>
   <div class="lobby-field" id="lobby-j2-row">
-    <div class="lobby-lbl" style="color:var(--c2)">Nombre J2</div>
+    <div class="lobby-lbl" style="color:var(--c2)">Comandante Verde</div>
     <input class="lobby-input" id="lobby-name2" placeholder="Jugador 2" maxlength="16" autocomplete="off" style="border-color:rgba(78,205,196,.4);color:var(--c2);"/>
   </div>
   <div class="lobby-field">
@@ -592,18 +592,19 @@ function mirrorFy(fy){return 1-fy;}
    Convert both to pixels using rival panel dims. */
 function hitCheck(gfx,gfy,ship,rivalP){
   const r=rivalPanel(rivalP).getBoundingClientRect();
-  // mirror of shot in rival coords
   const sx=gfx*r.width, sy=mirrorFy(gfy)*r.height;
-  // ship centre
   const cx=ship.fx*r.width, cy=ship.fy*r.height;
-  // half-extents of ship hitbox
+  let dx=sx-cx, dy=sy-cy;
+  // For rotated ships, rotate the delta into ship-local space
+  if(ship.angleDeg){
+    const rad=-ship.angleDeg*Math.PI/180;
+    const rdx=dx*Math.cos(rad)-dy*Math.sin(rad);
+    const rdy=dx*Math.sin(rad)+dy*Math.cos(rad);
+    dx=rdx; dy=rdy;
+  }
   const hw=ship.type.w/2, hh=ship.type.h/2;
-  // AABB + small circular blend: hit if within ellipse of ship dimensions
-  const dx=Math.abs(sx-cx)/hw, dy=Math.abs(sy-cy)/hh;
-  const inBox=(dx<=1&&dy<=1);
-  // pixel distance for error reporting (centre-to-centre)
+  const inBox=(Math.abs(dx)<=hw && Math.abs(dy)<=hh);
   const pxDist=Math.sqrt((sx-cx)**2+(sy-cy)**2);
-  // % relative to panel diagonal for normalised error display
   const diag=Math.sqrt(r.width**2+r.height**2);
   const errPct=(pxDist/diag)*100;
   return{hit:inBox, errPct, pxDist, mirrorX:sx, mirrorY:sy};}
@@ -615,6 +616,8 @@ function createShipEl(ship,playerColor){
   wrap.dataset.shipId=ship.id;
   const svg=ship.type.draw(playerColor,ship.hp,ship.type.hp);
   wrap.appendChild(svg);
+  const ang=ship.angleDeg||0;
+  wrap.style.transform=`translate(-50%,-50%) rotate(${ang}deg)`;
   return wrap;}
 
 function panelW(el){return el.getBoundingClientRect().width||el.offsetWidth||window.innerWidth;}
@@ -624,12 +627,18 @@ function positionShipEl(wrap,panel,fx,fy){
   wrap.style.left=(fx*w)+'px';
   wrap.style.top=(fy*h)+'px';}
 
+function setShipAngle(ship){
+  if(!ship.wrap)return;
+  const ang=ship.angleDeg||0;
+  ship.wrap.style.transform=`translate(-50%,-50%) rotate(${ang}deg)`;}
+
 function redrawShipSVG(ship,playerColor){
   if(!ship.wrap)return;
   ship.wrap.innerHTML='';
   const drawColor=ship.hp<=0?'#1a3060':playerColor;
   const svg=ship.type.draw(drawColor,ship.hp,ship.type.hp);
-  ship.wrap.appendChild(svg);}
+  ship.wrap.appendChild(svg);
+  setShipAngle(ship);}
 
 /* ══════════════ PLACEMENT ══════════════ */
 function initPicks(player){
@@ -650,7 +659,13 @@ function buildPicker(player){
     cnt.textContent=rem>0?`×${rem}`:'—';
     cnt.style.color=rem>0?hex(player):'rgba(255,255,255,.2)';
     btn.appendChild(shapeWrap);btn.appendChild(cnt);
-    if(rem>0){btn.addEventListener('click',()=>{selectedType=tt;buildPicker(player);});}
+    if(rem>0){btn.addEventListener('click',()=>{
+      selectedType=tt;buildPicker(player);
+      const msg=document.getElementById('picker-msg');
+      msg.innerHTML=tt.id==='lg'
+        ?`<span style="color:${hex(player)};font-weight:300">J${player}</span><span style="color:var(--muted)"> — pulsa y arrastra para girar</span>`
+        :`<span style="color:${hex(player)};font-weight:300">J${player}</span><span style="color:var(--muted)"> — despliega</span>`;
+    });}
     pickerBtns.appendChild(btn);});}
 
 function startPlacement(player){
@@ -661,6 +676,9 @@ function startPlacement(player){
   picker.classList.remove('hide');buildPicker(player);
   const msg=document.getElementById('picker-msg');
   msg.innerHTML=`<span style="color:${hex(player)};font-weight:300">J${player}</span><span style="color:var(--muted)"> — despliega</span>`;
+  // Listen for picker selection to update hint
+  pickerBtns.onchange=null;
+  pickerBtns._player=player;
   phaseMsg.innerHTML='';
   document.getElementById('rand-btn').style.color=hex(player);
   document.getElementById('rand-btn').onclick=(e)=>{e.stopPropagation();randomPlacement(player);};}
@@ -679,7 +697,8 @@ function startTrainBattle(){
         const hw=tt.w/2/pw+.02, hh=tt.h/2/ph+.02;
         const fx=hw+Math.random()*(1-2*hw);
         const fy=hh+Math.random()*(1-2*hh);
-        const ship={type:tt,fx,fy,hp:tt.hp,id:ships[1].length,wrap:null};
+        const angleDeg=tt.id==='lg'?snapAngle(Math.random()*360):0;
+        const ship={type:tt,fx,fy,hp:tt.hp,id:ships[1].length,wrap:null,angleDeg};
         ships[1].push(ship);
         const wrap=createShipEl(ship,hex(1));
         p1.appendChild(wrap); positionShipEl(wrap,p1,fx,fy);
@@ -719,7 +738,8 @@ function randomPlacement(player){
         const hw=tt.w/2/pw+.02,hh=tt.h/2/ph+.02;
         const fx=hw+Math.random()*(1-2*hw);
         const fy=hh+Math.random()*(1-2*hh);
-        const ship={type:tt,fx,fy,hp:tt.hp,id:ships[player].length,wrap:null};
+        const angleDeg=tt.id==='lg'?snapAngle(Math.random()*360):0;
+        const ship={type:tt,fx,fy,hp:tt.hp,id:ships[player].length,wrap:null,angleDeg};
         ships[player].push(ship);
         picks[player][tt.id]--;
         const wrap=createShipEl(ship,hex(player));
@@ -733,31 +753,112 @@ function randomPlacement(player){
   });
 }
 
-pTop.addEventListener('click',e=>{if(phase==='place'&&placingPlayer===1)handlePlaceClick(e,1);});
-pBot.addEventListener('click',e=>{if(phase==='place'&&placingPlayer===2)handlePlaceClick(e,2);});
+/* ══ PLACEMENT EVENT HANDLERS ══ */
+let lgDrag=null;
 
-function handlePlaceClick(e,player){
+function snapAngle(deg){ return Math.round(deg/45)*45; }
+
+function getFrac(clientX,clientY,panelEl){
+  const r=panelEl.getBoundingClientRect();
+  return {
+    fx:Math.min(.95,Math.max(.05,(clientX-r.left)/r.width)),
+    fy:Math.min(.95,Math.max(.05,(clientY-r.top)/r.height))
+  };
+}
+
+function doPlace(player,fx,fy,angleDeg){
   if(picks[player][selectedType.id]<=0){
-    const avail=SHIP_TYPES.find(t=>picks[player][t.id]>0);if(!avail)return;
-    selectedType=avail;buildPicker(player);}
-  const r=panel(player).getBoundingClientRect();
-  const fx=Math.min(1,Math.max(0,(e.clientX-r.left)/r.width));
-  const fy=Math.min(1,Math.max(0,(e.clientY-r.top)/r.height));
+    const avail=SHIP_TYPES.find(t=>picks[player][t.id]>0);
+    if(!avail)return null; selectedType=avail; buildPicker(player);
+  }
   const tt=selectedType;
-  const ship={type:tt,fx,fy,hp:tt.hp,id:ships[player].length,wrap:null};
+  const ship={type:tt,fx,fy,hp:tt.hp,id:ships[player].length,wrap:null,angleDeg:angleDeg||0};
   ships[player].push(ship);
   picks[player][tt.id]--;
-  // draw
   const wrap=createShipEl(ship,hex(player));
   panel(player).appendChild(wrap);
   positionShipEl(wrap,panel(player),fx,fy);
   ship.wrap=wrap;
-  // next available type
-  if(picks[player][tt.id]===0){const avail=SHIP_TYPES.find(t=>picks[player][t.id]>0);if(avail)selectedType=avail;}
+  if(picks[player][tt.id]===0){
+    const avail=SHIP_TYPES.find(t=>picks[player][t.id]>0);
+    if(avail) selectedType=avail;
+  }
   buildPicker(player);
   const placed=ships[player].length, rem=TOTAL_SHIPS-placed;
-  phaseMsg.innerHTML=rem>0?`<b style="color:${ch(player)}">J${player}</b> — ${rem} nave${rem!==1?'s':''} restante${rem!==1?'s':''}`:`<b style="color:${ch(player)}">J${player}</b> — listo`;
-  if(SHIP_TYPES.every(t=>picks[player][t.id]===0))setTimeout(()=>placementDone(player),200);}
+  phaseMsg.innerHTML=rem>0
+    ?`<b style="color:${ch(player)}">J${player}</b> — ${rem} nave${rem!==1?'s':''} restante${rem!==1?'s':''}`
+    :`<b style="color:${ch(player)}">J${player}</b> — listo`;
+  if(SHIP_TYPES.every(t=>picks[player][t.id]===0)) setTimeout(()=>placementDone(player),200);
+  return ship;
+}
+
+[pTop,pBot].forEach((pan,i)=>{
+  const player=i+1;
+
+  pan.addEventListener('touchstart',e=>{
+    if(phase!=='place'||placingPlayer!==player)return;
+    e.preventDefault();
+    const t=e.touches[0];
+    const {fx,fy}=getFrac(t.clientX,t.clientY,pan);
+    if(selectedType.id==='lg'){
+      const ship=doPlace(player,fx,fy,0);
+      if(ship) lgDrag={ship,player,x0:t.clientX,y0:t.clientY};
+    } else {
+      pan._tplace={fx,fy};
+    }
+  },{passive:false});
+
+  pan.addEventListener('touchmove',e=>{
+    if(phase!=='place'||placingPlayer!==player)return;
+    e.preventDefault();
+    if(lgDrag&&lgDrag.player===player){
+      const t=e.touches[0];
+      const dx=t.clientX-lgDrag.x0, dy=t.clientY-lgDrag.y0;
+      if(Math.abs(dx)>6||Math.abs(dy)>6){
+        lgDrag.ship.angleDeg=snapAngle(Math.atan2(dy,dx)*180/Math.PI);
+        setShipAngle(lgDrag.ship);
+      }
+    } else {
+      pan._tplace=null; // moved — cancel tap
+    }
+  },{passive:false});
+
+  pan.addEventListener('touchend',e=>{
+    if(phase!=='place'||placingPlayer!==player)return;
+    e.preventDefault();
+    if(lgDrag&&lgDrag.player===player){
+      lgDrag=null;
+    } else if(pan._tplace){
+      const {fx,fy}=pan._tplace;
+      pan._tplace=null;
+      doPlace(player,fx,fy,0);
+    }
+  },{passive:false});
+
+  pan.addEventListener('mousedown',e=>{
+    if(phase!=='place'||placingPlayer!==player||selectedType.id!=='lg')return;
+    const {fx,fy}=getFrac(e.clientX,e.clientY,pan);
+    const ship=doPlace(player,fx,fy,0);
+    if(!ship)return;
+    lgDrag={ship,player,x0:e.clientX,y0:e.clientY};
+    const onMove=ev=>{
+      const dx=ev.clientX-lgDrag.x0, dy=ev.clientY-lgDrag.y0;
+      if(Math.abs(dx)>6||Math.abs(dy)>6){
+        lgDrag.ship.angleDeg=snapAngle(Math.atan2(dy,dx)*180/Math.PI);
+        setShipAngle(lgDrag.ship);
+      }
+    };
+    const onUp=()=>{ lgDrag=null; document.removeEventListener('mousemove',onMove); document.removeEventListener('mouseup',onUp); };
+    document.addEventListener('mousemove',onMove);
+    document.addEventListener('mouseup',onUp);
+  });
+
+  pan.addEventListener('click',e=>{
+    if(phase!=='place'||placingPlayer!==player||selectedType.id==='lg')return;
+    const {fx,fy}=getFrac(e.clientX,e.clientY,pan);
+    doPlace(player,fx,fy,0);
+  });
+});
 
 function showPlayerLabel(player, callback){
   const targetPanel=panel(player);
@@ -1235,7 +1336,7 @@ const invasionCountdown=document.getElementById('invasion-countdown');
     document.getElementById('mode-'+m).classList.add('active');
     gameMode=m==='battle'?'online':m;
     document.getElementById('lobby-j2-row').style.display=gameMode==='local'?'':'none';
-    document.getElementById('lbl-name1').textContent=gameMode==='local'?'Nombre J1':'Nombre del comandante';
+    document.getElementById('lbl-name1').textContent=gameMode==='local'?'Comandante Rojo':'Comandante Rojo';
     lobbyUrlBox.classList.remove('show');
     lobbyStatus.textContent='';
     lobbyStart.textContent='Comenzar';
