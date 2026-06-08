@@ -333,7 +333,44 @@ body{
   font-size:clamp(2.5rem,12vw,5rem);letter-spacing:4px;
   color:#a8d4ff;
 }
-/* AIM CIRCLE */
+/* ROOMS LIST */
+#lobby-rooms{display:none;flex-direction:column;gap:6px;width:100%;max-width:300px;}
+#lobby-rooms.show{display:flex;}
+.room-lbl{
+  font-family:'Exo 2',sans-serif;font-weight:200;font-size:.65rem;
+  letter-spacing:4px;text-transform:uppercase;color:#a8d4ff;opacity:.5;
+}
+.room-item{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:8px 12px;
+  background:rgba(168,212,255,.04);
+  border:1px solid rgba(168,212,255,.12);
+  border-radius:2px;cursor:pointer;
+  transition:background .15s,border-color .15s;
+}
+.room-item:active{background:rgba(168,212,255,.1);border-color:rgba(168,212,255,.3);}
+.room-code{
+  font-family:'Exo 2',sans-serif;font-weight:200;font-size:.9rem;
+  letter-spacing:4px;color:#a8d4ff;text-transform:uppercase;
+}
+.room-info{
+  font-family:'Exo 2',sans-serif;font-weight:100;font-size:.6rem;
+  letter-spacing:2px;color:#a8d4ff;opacity:.45;
+  text-transform:uppercase;
+}
+.room-empty{
+  font-family:'Exo 2',sans-serif;font-weight:100;font-size:.65rem;
+  letter-spacing:3px;color:#a8d4ff;opacity:.3;text-transform:uppercase;
+  text-align:center;padding:8px 0;
+}
+#lobby-new-room{
+  font-family:'Exo 2',sans-serif;font-weight:200;font-size:.7rem;
+  letter-spacing:3px;text-transform:uppercase;
+  background:transparent;border:1px solid rgba(168,212,255,.18);
+  color:#a8d4ff;padding:7px 14px;cursor:pointer;border-radius:2px;
+  opacity:.6;transition:opacity .15s;
+}
+#lobby-new-room:active{opacity:1;}
 #aim-cursor{
   position:fixed;pointer-events:none;z-index:100;
   width:48px;height:48px;
@@ -365,6 +402,12 @@ body{
   <div id="lobby-url-box">
     <div id="lobby-url">—</div>
     <button id="lobby-copy">📋 Copiar enlace</button>
+  </div>
+  <!-- ONLINE ROOMS LIST -->
+  <div id="lobby-rooms">
+    <div class="room-lbl">Partidas en curso</div>
+    <div id="room-list"><div class="room-empty">Buscando salas…</div></div>
+    <button id="lobby-new-room">+ Nueva partida</button>
   </div>
   <div id="lobby-status"></div>
   <button class="lobby-btn" id="lobby-start" style="background:rgba(168,212,255,.1);color:#a8d4ff;border:1px solid rgba(168,212,255,.2);">
@@ -1344,6 +1387,75 @@ function fbInit(){
   }catch(e){ showToast('','tg1','Error Firebase: '+e.message,4000); }
 }
 
+let roomsListenerRef=null;
+
+function stopRoomsListener(){
+  if(roomsListenerRef){ roomsListenerRef.off(); roomsListenerRef=null; }
+}
+
+function loadRoomsList(){
+  if(!fbDb){ fbInit(); }
+  if(!fbDb) return;
+  const listEl=document.getElementById('room-list');
+  listEl.innerHTML='<div class="room-empty">Buscando salas…</div>';
+
+  stopRoomsListener();
+  roomsListenerRef=fbDb.ref('rooms');
+
+  // Clean up stale rooms (older than 5 min of inactivity)
+  const cutoff=Date.now()-5*60*1000;
+
+  roomsListenerRef.on('value', snap=>{
+    const rooms=snap.val()||{};
+    listEl.innerHTML='';
+    const active=[];
+    Object.entries(rooms).forEach(([id,room])=>{
+      if(!room.meta) return;
+      const lastActivity=room.meta.lastActivity||room.meta.created||0;
+      if(lastActivity<cutoff){
+        // Auto-delete stale room
+        fbDb.ref('rooms/'+id).remove();
+        return;
+      }
+      const players=Object.values(room.players||{});
+      if(!players.length) return;
+      active.push({id,meta:room.meta,players,lastActivity});
+    });
+
+    if(!active.length){
+      listEl.innerHTML='<div class="room-empty">No hay partidas activas</div>';
+      return;
+    }
+
+    active.sort((a,b)=>b.meta.created-a.meta.created);
+    active.forEach(({id,meta,players})=>{
+      const item=document.createElement('div');
+      item.className='room-item';
+      const age=Math.round((Date.now()-meta.created)/60000);
+      const ageStr=age<1?'ahora':age+'min';
+      item.innerHTML=`
+        <div>
+          <div class="room-code">${id}</div>
+          <div class="room-info">${players.length} jugador${players.length!==1?'es':''} · ${ageStr}</div>
+        </div>
+        <div class="room-info" style="color:#4ecdc4">Unirse ›</div>`;
+      item.addEventListener('click',()=>{
+        stopRoomsListener();
+        myName=(lobbyName.value.trim()||'Comandante').slice(0,16);
+        clientJoin(id);
+      });
+      listEl.appendChild(item);
+    });
+  });
+
+  // "Nueva partida" button
+  document.getElementById('lobby-new-room').onclick=()=>{
+    stopRoomsListener();
+    myName=(lobbyName.value.trim()||'Comandante').slice(0,16);
+    hostCreate();
+  };
+}
+
 /* ── Online state ── */
 let isHost=false, myId=null, myRoomId=null;
 let fbMsgRef=null, fbMsgListener=null;
@@ -1376,6 +1488,17 @@ const invasionCountdown=document.getElementById('invasion-countdown');
     gameMode=m==='battle'?'online':m;
     document.getElementById('lobby-j2-row').style.display=gameMode==='local'?'':'none';
     document.getElementById('lbl-name1').textContent=gameMode==='local'?'Comandante Rojo':'Comandante Rojo';
+    const roomsEl=document.getElementById('lobby-rooms');
+    if(gameMode==='online'){
+      roomsEl.classList.add('show');
+      lobbyStart.style.display='none';
+      fbInit();
+      loadRoomsList();
+    } else {
+      roomsEl.classList.remove('show');
+      lobbyStart.style.display='';
+      stopRoomsListener();
+    }
     lobbyUrlBox.classList.remove('show');
     lobbyStatus.textContent='';
     lobbyStart.textContent='Comenzar';
@@ -1429,7 +1552,10 @@ function sendMsg(obj){
   if(!fbMsgRef) return;
   obj._from=myId;
   obj._id=Math.random().toString(36).slice(2);
+  obj._ts=Date.now();
   fbMsgRef.push(obj);
+  // Update room activity timestamp
+  if(fbRoom) fbRoom.child('meta/lastActivity').set(Date.now());
 }
 
 function sendTo(pid, obj){ obj._to=pid; sendMsg(obj); }
@@ -1462,6 +1588,7 @@ function startListening(){
    ONLINE — ENTRY POINT
 ═══════════════════════════════════════════════ */
 function startOnlineMode(){
+  stopRoomsListener();
   fbInit();
   if(!fbDb){ showToast('','tg1','Firebase no disponible',3000); return; }
   const roomParam=getUrlRoom();
@@ -1487,7 +1614,7 @@ function hostCreate(){
   fbPresenceRef.onDisconnect().remove();
 
   // Write room meta
-  fbRoom.child('meta').set({host:myId,created:Date.now(),roomId:myRoomId});
+  fbRoom.child('meta').set({host:myId,created:Date.now(),lastActivity:Date.now(),roomId:myRoomId});
 
   combatants[myId]={id:myId,name:myName,team:'A',ships:[],_shipObjs:[],inGame:false,score:0};
 
@@ -2075,8 +2202,18 @@ function activateSmallFlashes(player){
 
 buildPips();
 if(getUrlRoom()){
-  document.getElementById('mode-battle').click();
-  lobbyStatus.textContent='Unirse a la partida…';
+  const rid=getUrlRoom();
+  fbInit();
+  myName=(lobbyName.value.trim()||'Comandante').slice(0,16);
+  // Switch to battle mode visually
+  document.querySelectorAll('.mode-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('mode-battle').classList.add('active');
+  gameMode='online';
+  document.getElementById('lobby-j2-row').style.display='none';
+  document.getElementById('lobby-rooms').classList.add('show');
+  document.getElementById('lobby-start').style.display='none';
+  lobbyStatus.textContent='Uniéndose a la partida…';
+  setTimeout(()=>clientJoin(rid), 800);
 }
 
 document.getElementById('fo-replay').addEventListener('click',()=>{
