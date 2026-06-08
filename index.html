@@ -1761,6 +1761,7 @@ function hostReceive(msg){
     case 'shot':{
       broadcastAll({...msg},fromId);
       processShot(msg);
+      applyRivalShot(msg); // update host's visual display
       break;
     }
 
@@ -2011,14 +2012,19 @@ function handleFireOnline(e){
   if(isHost){
     broadcastAll(shotMsg);
     processShot({...shotMsg,_from:myId});
+    // Host advances turn locally
+    setTimeout(()=>{
+      firingLocked=false;
+      advanceTurn(myId);
+    },600);
   } else {
     sendMsg(shotMsg);
+    // Tell host turn is done
+    setTimeout(()=>{
+      firingLocked=false;
+      sendMsg({type:'turn_done'});
+    },600);
   }
-
-  setTimeout(()=>{
-    sendMsg({type:'turn_done'});
-    firingLocked=false;
-  },600);
 }
 
 /* ── Lobby helpers ── */
