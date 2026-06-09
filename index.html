@@ -1784,6 +1784,16 @@ function hostReceive(msg){
       processShot(msg);
       applyRivalShot(msg);
       hideGhostCursor();
+      // Check if shooter sunk all enemies → game over
+      const shooterTeam=combatants[fromId]?combatants[fromId].team:null;
+      const enemiesAllSunk=shooterTeam&&Object.values(combatants).every(c=>{
+        if(c.team===shooterTeam||!c.inGame||!c._shipObjs) return true;
+        return c._shipObjs.every(s=>s.hp<=0);
+      });
+      if(enemiesAllSunk){
+        broadcastAll({type:'game_over',winnerId:fromId});
+        showFinal();
+      }
       break;
     }
 
@@ -2084,9 +2094,25 @@ function handleFireOnline(e){
     sendMsg(shotMsg);
   }
 
+  // Check win condition: all enemy ships sunk
+  const allSunk=enemyOnlineShips.every(s=>s.hp<=0);
+
   setTimeout(()=>{
-    sendMsg({type:'turn_done'});
-    firingLocked=false;
+    if(allSunk){
+      // Game over — broadcast and show final
+      if(isHost) broadcastAll({type:'game_over',winnerId:myId});
+      else sendMsg({type:'game_over',winnerId:myId});
+      showFinal();
+    } else if(!isHit){
+      // Miss → change turn
+      showToast('✗','bad','Fallo — turno del rival',1400);
+      sendMsg({type:'turn_done'});
+      firingLocked=false;
+    } else {
+      // Hit → keep turn, unlock to fire again
+      showToast('✓','good','¡Impacto! Sigue disparando',1400);
+      firingLocked=false;
+    }
   },600);
 }
 
