@@ -384,11 +384,19 @@ body{
 <div id="lobby">
   <div id="lobby-title">Star Siege</div>
   <div class="lobby-field">
-    <div class="lobby-lbl" id="lbl-name1">Comandante Rojo</div>
+    <div class="lobby-lbl" id="lbl-name1">Comandante</div>
     <input class="lobby-input" id="lobby-name" placeholder="Jugador 1" maxlength="16" autocomplete="off"/>
   </div>
+  <!-- Color picker — solo visible en modo online -->
+  <div class="lobby-field" id="lobby-color-row" style="display:none">
+    <div class="lobby-lbl">Color</div>
+    <div style="display:flex;gap:12px;align-items:center;">
+      <button id="color-orange" style="width:30px;height:30px;border-radius:50%;border:3px solid #ff6b35;background:#ff6b35;cursor:pointer;box-shadow:0 0 10px #ff6b3599;transition:opacity .15s,box-shadow .15s;"></button>
+      <button id="color-teal" style="width:30px;height:30px;border-radius:50%;border:2px solid #4ecdc466;background:#4ecdc4;cursor:pointer;opacity:.4;transition:opacity .15s,box-shadow .15s;"></button>
+    </div>
+  </div>
   <div class="lobby-field" id="lobby-j2-row">
-    <div class="lobby-lbl" style="color:var(--c2)">Comandante Verde</div>
+    <div class="lobby-lbl" style="color:var(--c2)">Comandante</div>
     <input class="lobby-input" id="lobby-name2" placeholder="Jugador 2" maxlength="16" autocomplete="off" style="border-color:rgba(78,205,196,.4);color:var(--c2);"/>
   </div>
   <div class="lobby-field">
@@ -1375,6 +1383,21 @@ function showFinal(){
 
 let gameMode='local';
 let myName='Comandante';
+let myPreferredTeam='A'; // 'A'=naranja(host default), 'B'=turquesa
+
+function selectLobbyColor(team){
+  myPreferredTeam=team;
+  const oBtn=document.getElementById('color-orange');
+  const tBtn=document.getElementById('color-teal');
+  if(!oBtn||!tBtn) return;
+  if(team==='A'){
+    oBtn.style.opacity='1'; oBtn.style.border='3px solid #ff6b35'; oBtn.style.boxShadow='0 0 12px #ff6b3599';
+    tBtn.style.opacity='.4'; tBtn.style.border='2px solid #4ecdc466'; tBtn.style.boxShadow='none';
+  } else {
+    tBtn.style.opacity='1'; tBtn.style.border='3px solid #4ecdc4'; tBtn.style.boxShadow='0 0 12px #4ecdc499';
+    oBtn.style.opacity='.4'; oBtn.style.border='2px solid #ff6b3566'; oBtn.style.boxShadow='none';
+  }
+}
 
 /* ── Firebase config ── */
 const FB_CONFIG={
@@ -1498,7 +1521,10 @@ const invasionCountdown=document.getElementById('invasion-countdown');
     document.getElementById('mode-'+m).classList.add('active');
     gameMode=m==='battle'?'online':m;
     document.getElementById('lobby-j2-row').style.display=gameMode==='local'?'':'none';
-    document.getElementById('lbl-name1').textContent=gameMode==='local'?'Comandante Rojo':'Comandante Rojo';
+    document.getElementById('lobby-color-row').style.display=gameMode==='online'?'':'none';
+    // Reset color selection when switching to online (naranja por defecto)
+    if(gameMode==='online') selectLobbyColor('A');
+    document.getElementById('lbl-name1').textContent='Comandante';
     const roomsEl=document.getElementById('lobby-rooms');
     if(gameMode==='online'){
       roomsEl.classList.add('show');
@@ -1518,6 +1544,10 @@ const invasionCountdown=document.getElementById('invasion-countdown');
     if(pl) pl.remove();
   });
 });
+
+// Color picker buttons
+document.getElementById('color-orange').addEventListener('click',()=>selectLobbyColor('A'));
+document.getElementById('color-teal').addEventListener('click',()=>selectLobbyColor('B'));
 
 document.getElementById('lobby-copy').addEventListener('click',()=>{
   navigator.clipboard.writeText(lobbyUrlEl.textContent)
@@ -1612,7 +1642,7 @@ function startOnlineMode(){
 function hostCreate(){
   lobbyStart.disabled=true;
   lobbyStatus.textContent='Creando sala…';
-  isHost=true; myTeam='A';
+  isHost=true; myTeam=myPreferredTeam;
   myId='host_'+Date.now().toString(36);
   myRoomId=Math.random().toString(36).slice(2,8).toUpperCase();
 
@@ -1621,13 +1651,13 @@ function hostCreate(){
   fbPresenceRef=fbRoom.child('players/'+myId);
 
   // Write host presence
-  fbPresenceRef.set({id:myId,name:myName,team:'A',ts:Date.now()});
+  fbPresenceRef.set({id:myId,name:myName,team:myTeam,ts:Date.now()});
   fbPresenceRef.onDisconnect().remove();
 
   // Write room meta
   fbRoom.child('meta').set({host:myId,created:Date.now(),lastActivity:Date.now(),roomId:myRoomId});
 
-  combatants[myId]={id:myId,name:myName,team:'A',ships:[],_shipObjs:[],inGame:false,score:0};
+  combatants[myId]={id:myId,name:myName,team:myTeam,ships:[],_shipObjs:[],inGame:false,score:0};
 
   startListening();
 
@@ -2124,11 +2154,20 @@ function showJoinScreen(msg){
   lbl.style.cssText='font-family:Exo 2;font-weight:200;font-size:.7rem;letter-spacing:3px;color:#7ab0e8;text-transform:uppercase;';
   lbl.textContent='Elige bando';
   const btns=document.createElement('div');btns.style.cssText='display:flex;gap:10px;';
+  // t:'B'=Enemigo=naranja(A), t:'A'=Refuerzo=turquesa(B)
+  // myPreferredTeam 'A'=naranja → joiner elige t:'B' (enemigo del host si host es A)
+  // myPreferredTeam 'B'=turquesa → joiner elige t:'A' (refuerzo, mismo color)
   [{t:'B',label:'⚔ Enemigo',color:'#ff6b35'},{t:'A',label:'🛡 Refuerzo',color:'#4ecdc4'}].forEach(opt=>{
     const b=document.createElement('button');
-    b.className='lobby-input';b.style.cssText=`color:${opt.color};border-color:${opt.color};cursor:pointer;padding:6px 14px;font-size:.75rem;`;
+    b.className='lobby-input';
+    // Pre-highlight según color elegido en lobby
+    const isDefault=(myPreferredTeam==='A'&&opt.t==='B')||(myPreferredTeam==='B'&&opt.t==='A');
+    b.style.cssText=`color:${opt.color};border-color:${opt.color};cursor:pointer;padding:6px 14px;font-size:.75rem;opacity:${isDefault?'1':'.45'};`;
     b.textContent=opt.label;
     b.onclick=()=>{
+      myTeam=opt.t==='B'?'A':'B'; // B=enemigo=equipo contrario al host
+      // realmente el team en el protocolo es el equipo de juego directo
+      myTeam=opt.t; // override: protocolo usa t directamente
       sendMsg({type:'choose_team',team:opt.t});
       jb.remove();
       lobbyStatus.textContent='Esperando confirmación…';
