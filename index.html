@@ -371,19 +371,6 @@ body{
   opacity:.6;transition:opacity .15s;
 }
 #lobby-new-room:active{opacity:1;}
-/* SPECTATOR OVERLAY */
-#spectator-overlay{
-  position:absolute;inset:0;z-index:8;
-  display:none;align-items:center;justify-content:center;
-  pointer-events:none;
-  background:rgba(1,9,21,.4);
-}
-#spectator-overlay.show{display:flex;}
-#spectator-overlay span{
-  font-family:'Exo 2',sans-serif;font-weight:100;font-style:italic;
-  font-size:clamp(.55rem,1.4vw,.75rem);letter-spacing:5px;
-  text-transform:uppercase;color:#a8d4ff;opacity:.3;
-}
 #aim-cursor{
   position:fixed;pointer-events:none;z-index:100;
   width:48px;height:48px;
@@ -449,10 +436,7 @@ body{
 </div>
 <div id="arena">
   <div class="panel no-click" id="panel-top"><div class="ptag">Jugador 1</div></div>
-  <div class="panel no-click" id="panel-bot">
-    <div class="ptag">Jugador 2</div>
-    <div id="spectator-overlay"><span>bajo ataque</span></div>
-  </div>
+  <div class="panel no-click" id="panel-bot"><div class="ptag">Jugador 2</div></div>
 </div>
 <div id="picker"><div id="picker-msg"></div><div id="picker-btns"></div><button id="rand-btn">⚄ Aleatorio</button></div>
 </div><!-- /game-shell -->
@@ -1096,17 +1080,28 @@ function addFireTouch(panelEl,player){
     if(!aimActive)return;
     e.preventDefault();
     const t=e.touches[0];
+    const r=panelEl.getBoundingClientRect();
+    if(t.clientX<r.left||t.clientX>r.right||t.clientY<r.top||t.clientY>r.bottom){
+      aimCursor.classList.remove('show');
+      return;
+    }
     const pos=calcAimPos(t.clientX,t.clientY,player);
     showCursor(pos.x,pos.y,'#a8d4ff');
+    if(gameMode==='online'){
+      const gfx=(t.clientX-r.left)/r.width;
+      const gfy=(t.clientY-r.top)/r.height;
+      broadcastAim(gfx,gfy);
+    }
   },{passive:false});
 
   panelEl.addEventListener('touchend',e=>{
     if(!aimActive){hideCursor();return;}
     e.preventDefault();
     hideCursor();
+    if(gameMode==='online') sendMsg({type:'aim_end'});
     const r=panelEl.getBoundingClientRect();
-    const fx=Math.min(r.right-1,Math.max(r.left+1,aimClientX));
-    const fy=Math.min(r.bottom-1,Math.max(r.top+1,aimClientY));
+    const fx=Math.min(r.right-2,Math.max(r.left+2,aimClientX));
+    const fy=Math.min(r.bottom-2,Math.max(r.top+2,aimClientY));
     if(gameMode==='online') handleFireOnline({clientX:fx,clientY:fy});
     else handleFire({clientX:fx,clientY:fy},player);
   },{passive:false});
@@ -1774,9 +1769,21 @@ function hostReceive(msg){
       break;
     }
 
+    case 'aim':{
+      broadcastAll({...msg},fromId);
+      showGhostCursor(msg.gfx,msg.gfy,enemyColor());
+      break;
+    }
+    case 'aim_end':{
+      broadcastAll({...msg},fromId);
+      hideGhostCursor();
+      break;
+    }
     case 'shot':{
       broadcastAll({...msg},fromId);
       processShot(msg);
+      applyRivalShot(msg);
+      hideGhostCursor();
       break;
     }
 
@@ -1836,7 +1843,16 @@ function clientReceive(msg){
       break;
     }
 
+    case 'aim':{
+      if(msg._from!==myId) showGhostCursor(msg.gfx,msg.gfy,enemyColor());
+      break;
+    }
+    case 'aim_end':{
+      hideGhostCursor();
+      break;
+    }
     case 'shot':{
+      hideGhostCursor();
       if(msg._from!==myId) applyRivalShot(msg);
       break;
     }
@@ -1887,9 +1903,6 @@ function onBattleStart(msg){
 
   buildEnemyDisplay();
   showInviteButton();
-  // Hide spectator overlay until renderOnlineGame sets it
-  const ov=document.getElementById('spectator-overlay');
-  if(ov) ov.classList.remove('show');
   renderOnlineGame();
 }
 
@@ -1935,19 +1948,6 @@ function renderOnlineGame(){
   pBot.classList.toggle('no-click',!myTurn||firingLocked);
   pTop.classList.add('no-click'); pTop.classList.remove('can-click');
   if(myTurn) firingLocked=false;
-
-  // Spectator overlay — show on my panel (pBot) when it's the rival's turn
-  const overlay=document.getElementById('spectator-overlay');
-  if(overlay){
-    if(!myTurn){
-      const nm=combatants[activeTurnId]?combatants[activeTurnId].name:'rival';
-      overlay.querySelector('span').textContent=nm+' dispara';
-      overlay.classList.add('show');
-    } else {
-      overlay.classList.remove('show');
-    }
-  }
-
   const nm=combatants[activeTurnId]?combatants[activeTurnId].name:'...';
   phaseMsg.innerHTML=myTurn
     ?`<b style="color:${myColor()}">Tu turno</b>`
@@ -1991,7 +1991,44 @@ function applyRivalShot(msg){
   renderOnlineGame();
 }
 
-/* ── FIRE (online) — always pBot → pTop ── */
+let _lastAimSend=0;
+
+function broadcastAim(gfx,gfy){
+  const now=Date.now();
+  if(now-_lastAimSend<50) return;
+  _lastAimSend=now;
+  sendMsg({type:'aim',gfx,gfy});
+}
+
+function getGhostCursor(){
+  let g=document.getElementById('ghost-cursor');
+  if(!g){
+    g=aimCursor.cloneNode(true);
+    g.id='ghost-cursor';
+    g.style.opacity='0.45';
+    g.style.zIndex='35';
+    document.body.appendChild(g);
+  }
+  return g;
+}
+
+function showGhostCursor(gfx,gfy,color){
+  // Show attacker's aim on pTop — where their shots land from the spectator's perspective
+  const rTop=pTop.getBoundingClientRect();
+  const x=gfx*rTop.width+rTop.left;
+  const y=(1-gfy)*rTop.height+rTop.top;
+  const g=getGhostCursor();
+  g.style.left=x+'px';
+  g.style.top=y+'px';
+  g.querySelectorAll('circle,line').forEach(el=>el.setAttribute('stroke',color));
+  g.querySelector('circle:last-of-type').setAttribute('fill',color);
+  g.classList.add('show');
+}
+
+function hideGhostCursor(){
+  const g=document.getElementById('ghost-cursor');
+  if(g) g.classList.remove('show');
+}
 function handleFireOnline(e){
   if(gameMode!=='online'||activeTurnId!==myId||firingLocked) return;
   firingLocked=true;
