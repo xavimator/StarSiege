@@ -1080,6 +1080,12 @@ function addFireTouch(panelEl,player){
     if(!aimActive)return;
     e.preventDefault();
     const t=e.touches[0];
+    const r=panelEl.getBoundingClientRect();
+    // If finger leaves the panel, hide cursor but keep aimActive so touchend still fires
+    if(t.clientX<r.left||t.clientX>r.right||t.clientY<r.top||t.clientY>r.bottom){
+      aimCursor.classList.remove('show');
+      return;
+    }
     const pos=calcAimPos(t.clientX,t.clientY,player);
     showCursor(pos.x,pos.y,'#a8d4ff');
   },{passive:false});
@@ -1089,8 +1095,8 @@ function addFireTouch(panelEl,player){
     e.preventDefault();
     hideCursor();
     const r=panelEl.getBoundingClientRect();
-    const fx=Math.min(r.right-1,Math.max(r.left+1,aimClientX));
-    const fy=Math.min(r.bottom-1,Math.max(r.top+1,aimClientY));
+    const fx=Math.min(r.right-2,Math.max(r.left+2,aimClientX));
+    const fy=Math.min(r.bottom-2,Math.max(r.top+2,aimClientY));
     if(gameMode==='online') handleFireOnline({clientX:fx,clientY:fy});
     else handleFire({clientX:fx,clientY:fy},player);
   },{passive:false});
@@ -1761,7 +1767,6 @@ function hostReceive(msg){
     case 'shot':{
       broadcastAll({...msg},fromId);
       processShot(msg);
-      applyRivalShot(msg); // update host's visual display
       break;
     }
 
@@ -1934,27 +1939,38 @@ function processShot(msg){
 }
 
 function applyRivalShot(msg){
-  const shooter=combatants[msg._from];
-  if(!shooter) return;
-  if(msg.isHit&&msg.hitShipId){
-    if(shooter.team===myTeam){
-      const s=enemyOnlineShips.find(s=>s.id===msg.hitShipId);
-      if(s){
-        s.hp=Math.max(0,s.hp-1);
-        redrawShipSVG(s,s.hp<=0?'#1a3060':enemyColor());
-        const rTop=pTop.getBoundingClientRect();
-        const dfy=(s._displayFy!==undefined)?s._displayFy:s.fy;
-        miniExplosion(pTop,msg.gfx*rTop.width,dfy*rTop.height,myColor());
-      }
-    } else {
-      const s=myOnlineShips.find(s=>s.id===msg.hitShipId);
-      if(s){
-        s.hp=Math.max(0,s.hp-1);
-        redrawShipSVG(s,s.hp<=0?'#1a3060':myColor());
-        const rBot=pBot.getBoundingClientRect();
-        const dfy=(s._displayFy!==undefined)?s._displayFy:s.fy;
-        miniExplosion(pBot,msg.gfx*rBot.width,dfy*rBot.height,enemyColor());
-      }
+  if(!msg.isHit||!msg.hitShipId) return;
+
+  // Determine if the hit ship belongs to me or to the enemy
+  const hitsMine = msg.hitOwnerId === myId;
+
+  if(hitsMine){
+    // My ship was hit — update in pBot
+    const s=myOnlineShips.find(s=>s.id===msg.hitShipId);
+    if(s){
+      s.hp=Math.max(0,s.hp-1);
+      redrawShipSVG(s,s.hp<=0?'#1a3060':myColor());
+      const rBot=pBot.getBoundingClientRect();
+      const dfy=s._displayFy!==undefined?s._displayFy:s.fy;
+      miniExplosion(pBot,msg.gfx*rBot.width,dfy*rBot.height,enemyColor());
+      const im=document.createElement('div');im.className='mk impact-mk no-transition';
+      im.style.left=(msg.gfx*rBot.width)+'px';
+      im.style.top=(dfy*rBot.height)+'px';
+      im.appendChild(drawImpactSVG(enemyColor(),true));pBot.appendChild(im);
+    }
+  } else {
+    // Enemy ship was hit — update in pTop
+    const s=enemyOnlineShips.find(s=>s.id===msg.hitShipId);
+    if(s){
+      s.hp=Math.max(0,s.hp-1);
+      redrawShipSVG(s,s.hp<=0?'#1a3060':enemyColor());
+      const rTop=pTop.getBoundingClientRect();
+      const dfy=s._displayFy!==undefined?s._displayFy:s.fy;
+      miniExplosion(pTop,msg.gfx*rTop.width,dfy*rTop.height,myColor());
+      const im=document.createElement('div');im.className='mk impact-mk no-transition';
+      im.style.left=(msg.gfx*rTop.width)+'px';
+      im.style.top=(dfy*rTop.height)+'px';
+      im.appendChild(drawImpactSVG(myColor(),true));pTop.appendChild(im);
     }
   }
   renderOnlineGame();
@@ -2012,19 +2028,14 @@ function handleFireOnline(e){
   if(isHost){
     broadcastAll(shotMsg);
     processShot({...shotMsg,_from:myId});
-    // Host advances turn locally
-    setTimeout(()=>{
-      firingLocked=false;
-      advanceTurn(myId);
-    },600);
   } else {
     sendMsg(shotMsg);
-    // Tell host turn is done
-    setTimeout(()=>{
-      firingLocked=false;
-      sendMsg({type:'turn_done'});
-    },600);
   }
+
+  setTimeout(()=>{
+    sendMsg({type:'turn_done'});
+    firingLocked=false;
+  },600);
 }
 
 /* ── Lobby helpers ── */
