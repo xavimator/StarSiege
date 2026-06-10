@@ -461,6 +461,42 @@ body{
   </div>
 </div>
 <div id="toast"><div id="toast-err">—</div><div id="toast-msg">—</div></div>
+<!-- INVITE OVERLAY -->
+<div id="invite-overlay" style="
+  display:none;position:fixed;inset:0;z-index:300;
+  align-items:center;justify-content:center;
+  background:rgba(1,9,21,.88);backdrop-filter:blur(8px);">
+  <div id="invite-box" style="
+    display:flex;flex-direction:column;align-items:center;gap:18px;
+    padding:32px 28px;background:rgba(3,13,28,.97);
+    border:1px solid rgba(30,80,160,.5);border-radius:4px;min-width:220px;">
+    <div style="font-family:'Exo 2',sans-serif;font-weight:200;font-size:.7rem;
+      letter-spacing:4px;color:#a8d4ff;text-transform:uppercase;">Invitar</div>
+    <div id="invite-url" style="font-family:'Rajdhani',sans-serif;font-weight:300;
+      font-size:.7rem;color:#5a8fd4;letter-spacing:1px;word-break:break-all;text-align:center;max-width:240px;"></div>
+    <div style="display:flex;gap:12px;">
+      <button id="invite-copy-btn" style="
+        font-family:'Rajdhani',sans-serif;font-weight:400;font-size:.8rem;
+        letter-spacing:2px;text-transform:uppercase;
+        background:rgba(168,212,255,.08);color:#a8d4ff;
+        border:1px solid rgba(168,212,255,.25);padding:8px 18px;
+        cursor:pointer;border-radius:2px;">📋 Copiar</button>
+      <button id="invite-qr-btn" style="
+        font-family:'Rajdhani',sans-serif;font-weight:400;font-size:.8rem;
+        letter-spacing:2px;text-transform:uppercase;
+        background:rgba(168,212,255,.08);color:#a8d4ff;
+        border:1px solid rgba(168,212,255,.25);padding:8px 18px;
+        cursor:pointer;border-radius:2px;">▦ QR</button>
+    </div>
+    <div id="invite-qr-wrap" style="display:none;">
+      <img id="invite-qr-img" style="width:160px;height:160px;border-radius:4px;" src="" alt="QR"/>
+    </div>
+    <button id="invite-close-btn" style="
+      background:transparent;border:none;color:#5a8fd4;
+      font-size:.7rem;letter-spacing:2px;cursor:pointer;
+      text-transform:uppercase;font-family:'Rajdhani',sans-serif;">✕ Cerrar</button>
+  </div>
+</div>
 <div id="phase-msg" style="display:none"></div>
 <div id="pips-row" style="display:none"><div class="pg" id="pg1"></div><div class="pg" id="pg2"></div></div>
 <div id="final-overlay">
@@ -2296,13 +2332,41 @@ function showInviteButton(){
   const btn=document.getElementById('invite-btn');
   if(!btn||btn.style.display==='inline') return;
   btn.style.display='inline';
-  btn.onclick=()=>{
-    const url=location.origin+location.pathname+'?room='+myRoomId;
+  btn.onclick=()=>{ openInviteOverlay(); };
+}
+
+function openInviteOverlay(){
+  const url=location.origin+location.pathname+'?room='+myRoomId;
+  const overlay=document.getElementById('invite-overlay');
+  document.getElementById('invite-url').textContent=url;
+  document.getElementById('invite-qr-wrap').style.display='none';
+  document.getElementById('invite-qr-img').src='';
+  overlay.style.display='flex';
+
+  document.getElementById('invite-copy-btn').onclick=()=>{
+    const copyBtn=document.getElementById('invite-copy-btn');
     navigator.clipboard.writeText(url).then(()=>{
-      const was=btn.textContent; btn.textContent='✓';
-      setTimeout(()=>btn.textContent=was,1800);
+      copyBtn.textContent='✓ Copiado';
+      setTimeout(()=>copyBtn.textContent='📋 Copiar',2000);
     }).catch(()=>{ prompt('Enlace:',url); });
   };
+
+  document.getElementById('invite-qr-btn').onclick=()=>{
+    const wrap=document.getElementById('invite-qr-wrap');
+    const img=document.getElementById('invite-qr-img');
+    if(wrap.style.display==='none'){
+      const qrUrl='https://api.qrserver.com/v1/create-qr-code/?size=160x160&bgcolor=010915&color=a8d4ff&data='+encodeURIComponent(url);
+      img.src=qrUrl;
+      wrap.style.display='block';
+      document.getElementById('invite-qr-btn').textContent='▦ Ocultar QR';
+    } else {
+      wrap.style.display='none';
+      document.getElementById('invite-qr-btn').textContent='▦ QR';
+    }
+  };
+
+  document.getElementById('invite-close-btn').onclick=()=>{ overlay.style.display='none'; };
+  overlay.onclick=(e)=>{ if(e.target===overlay) overlay.style.display='none'; };
 }
 
 /* ── Small ship random flash ── */
