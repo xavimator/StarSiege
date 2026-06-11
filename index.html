@@ -763,12 +763,14 @@ function startPlacement(player){
   rivalPanel(player).classList.add('no-click');rivalPanel(player).classList.remove('can-click');
   picker.classList.remove('hide');buildPicker(player);
   const msg=document.getElementById('picker-msg');
-  msg.innerHTML=`<span style="color:${hex(player)};font-weight:300">J${player}</span><span style="color:var(--muted)"> — despliega</span>`;
+  const labelColor=(gameMode==='online')?myColor():hex(player);
+  const labelName=(gameMode==='online')?myName:`J${player}`;
+  msg.innerHTML=`<span style="color:${labelColor};font-weight:300">${labelName}</span><span style="color:var(--muted)"> — despliega</span>`;
   // Listen for picker selection to update hint
   pickerBtns.onchange=null;
   pickerBtns._player=player;
   phaseMsg.innerHTML='';
-  document.getElementById('rand-btn').style.color=hex(player);
+  document.getElementById('rand-btn').style.color=(gameMode==='online')?myColor():hex(player);
   document.getElementById('rand-btn').onclick=(e)=>{e.stopPropagation();randomPlacement(player);};}
 
 function startTrainBattle(){
@@ -830,7 +832,8 @@ function randomPlacement(player){
         const ship={type:tt,fx,fy,hp:tt.hp,id:ships[player].length,wrap:null,angleDeg};
         ships[player].push(ship);
         picks[player][tt.id]--;
-        const wrap=createShipEl(ship,hex(player));
+        const shipColor2=(gameMode==='online')?myColor():hex(player);
+        const wrap=createShipEl(ship,shipColor2);
         p.appendChild(wrap);
         positionShipEl(wrap,p,fx,fy);
         ship.wrap=wrap;
@@ -863,7 +866,8 @@ function doPlace(player,fx,fy,angleDeg){
   const ship={type:tt,fx,fy,hp:tt.hp,id:ships[player].length,wrap:null,angleDeg:angleDeg||0};
   ships[player].push(ship);
   picks[player][tt.id]--;
-  const wrap=createShipEl(ship,hex(player));
+  const shipColor=(gameMode==='online')?myColor():hex(player);
+  const wrap=createShipEl(ship,shipColor);
   panel(player).appendChild(wrap);
   positionShipEl(wrap,panel(player),fx,fy);
   ship.wrap=wrap;
@@ -964,7 +968,8 @@ function showPlayerLabel(player, callback){
 function placementDone(player){
   if(gameMode==='online'){
     stopPlacementTimer();
-    const mySlot=myTeam==='A'?1:2;
+    // Host usa slot 1 (pTop), joiner siempre usa slot 2 (pBot)
+    const mySlot=isHost?1:2;
     panel(mySlot).classList.add('no-click');panel(mySlot).classList.remove('can-click');
     picker.classList.add('hide');
     const shipData=ships[mySlot].map(s=>({typeId:s.type.id,fx:s.fx,fy:s.fy,hp:s.type.hp,id:s.id,angleDeg:s.angleDeg||0}));
@@ -2296,7 +2301,8 @@ function launchPlacement(quota, team){
   const lb=document.getElementById('lobby-player-list'); if(lb) lb.remove();
   document.getElementById('game-shell').classList.add('show');
   buildPips();
-  const mySlot=myTeam==='A'?1:2;
+  // Joiner siempre coloca en pBot (slot 2), que es el panel inferior que controla
+  const mySlot=2;
   startPlacement(mySlot);
   startPlacementTimer(30,()=>{ if(ships[mySlot].length<onlineShipQuota) randomPlacement(mySlot); });
   showInviteButton();
