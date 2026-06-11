@@ -88,6 +88,21 @@ body{
 #panel-top .ptag{color:var(--c1);}
 #panel-bot .ptag{color:var(--c2);}
 
+/* Zona de exclusión de colocación — solo visible en phase:place */
+.panel::before,.panel::after{
+  content:'';position:absolute;left:0;right:0;height:10%;
+  pointer-events:none;z-index:2;
+  background:repeating-linear-gradient(
+    45deg,
+    rgba(168,212,255,.03) 0px,rgba(168,212,255,.03) 3px,
+    transparent 3px,transparent 9px
+  );
+  border:none;opacity:0;transition:opacity .3s;
+}
+.panel::before{top:0;border-bottom:1px dashed rgba(168,212,255,.12);}
+.panel::after{bottom:0;border-top:1px dashed rgba(168,212,255,.12);}
+.panel.placing::before,.panel.placing::after{opacity:1;}
+
 /* NAME EDITOR OVERLAY */
 #name-editor{
   position:fixed;inset:0;z-index:200;
@@ -766,8 +781,8 @@ function buildPicker(player){
 function startPlacement(player){
   placingPlayer=player;phase='place';ships[player]=[];initPicks(player);
   panel(player).querySelectorAll('.mk').forEach(d=>d.remove());
-  panel(player).classList.remove('no-click');panel(player).classList.add('can-click');
-  rivalPanel(player).classList.add('no-click');rivalPanel(player).classList.remove('can-click');
+  panel(player).classList.remove('no-click');panel(player).classList.add('can-click','placing');
+  rivalPanel(player).classList.add('no-click');rivalPanel(player).classList.remove('can-click','placing');
   picker.classList.remove('hide');buildPicker(player);
   const msg=document.getElementById('picker-msg');
   const labelColor=(gameMode==='online')?myColor():hex(player);
@@ -847,6 +862,7 @@ function randomPlacement(player){
       }
     });
     buildPicker(player);
+    panel(player).classList.remove('placing');
     setTimeout(()=>placementDone(player),300);
   });
 }
@@ -860,7 +876,7 @@ function getFrac(clientX,clientY,panelEl){
   const r=panelEl.getBoundingClientRect();
   return {
     fx:Math.min(.95,Math.max(.05,(clientX-r.left)/r.width)),
-    fy:Math.min(.95,Math.max(.05,(clientY-r.top)/r.height))
+    fy:Math.min(.90,Math.max(.10,(clientY-r.top)/r.height))
   };
 }
 
@@ -980,7 +996,7 @@ function placementDone(player){
     stopPlacementTimer();
     // Host usa slot 1 (pTop), joiner siempre usa slot 2 (pBot)
     const mySlot=isHost?1:2;
-    panel(mySlot).classList.add('no-click');panel(mySlot).classList.remove('can-click');
+    panel(mySlot).classList.add('no-click');panel(mySlot).classList.remove('can-click','placing');
     picker.classList.add('hide');
     const shipData=ships[mySlot].map(s=>({typeId:s.type.id,fx:s.fx,fy:s.fy,hp:s.type.hp,id:s.id,angleDeg:s.angleDeg||0}));
     combatants[myId]=combatants[myId]||{id:myId,name:myName,team:myTeam,ships:[],_shipObjs:[],inGame:false,score:0};
@@ -997,7 +1013,7 @@ function placementDone(player){
   } else if(gameMode==='train'){
     startTrainBattle();
   } else {
-    panel(player).classList.add('no-click');panel(player).classList.remove('can-click');
+    panel(player).classList.add('no-click');panel(player).classList.remove('can-click','placing');
     picker.classList.add('hide');
     if(player===1){
       showPlayerLabel(2,()=>startPlacement(2));
