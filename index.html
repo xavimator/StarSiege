@@ -71,8 +71,8 @@ body{
 #game-shell{display:none;flex-direction:column;flex:1;overflow:hidden;}
 #game-shell.show{display:flex;}
 /* ARENA */
-#arena{position:relative;z-index:5;display:flex;flex-direction:column;flex:1;overflow:hidden;}
-.panel{flex:1;position:relative;overflow:hidden;touch-action:manipulation;}
+#arena{position:relative;z-index:5;display:flex;flex-direction:column;flex:1;overflow:hidden;justify-content:center;}
+.panel{flex:0 0 40%;position:relative;overflow:hidden;touch-action:manipulation;}
 .panel.can-click{cursor:crosshair;}
 .panel.no-click{pointer-events:none;}
 #panel-top{border-bottom:1px solid var(--div);background:linear-gradient(180deg,rgba(2,10,26,.28),rgba(1,7,18,.08));}
@@ -903,7 +903,8 @@ function doPlace(player,fx,fy,angleDeg){
       const ship=doPlace(player,fx,fy,0);
       if(ship) lgDrag={ship,player,x0:t.clientX,y0:t.clientY};
     } else {
-      pan._tplace={fx,fy};
+      const t0=e.touches[0];
+      pan._tplace={fx,fy,_x0:t0.clientX,_y0:t0.clientY};
     }
   },{passive:false});
 
@@ -917,8 +918,10 @@ function doPlace(player,fx,fy,angleDeg){
         lgDrag.ship.angleDeg=snapAngle(Math.atan2(dy,dx)*180/Math.PI);
         setShipAngle(lgDrag.ship);
       }
-    } else {
-      pan._tplace=null; // moved — cancel tap
+    } else if(pan._tplace){
+      const t=e.touches[0];
+      const dx=Math.abs(t.clientX-pan._tplace._x0), dy=Math.abs(t.clientY-pan._tplace._y0);
+      if(dx>9||dy>9) pan._tplace=null; // cancel only on real movement
     }
   },{passive:false});
 
@@ -1096,12 +1099,14 @@ const aimCursor=document.getElementById('aim-cursor');
 let aimClientX=0,aimClientY=0,aimActive=false;
 
 // Offset toward the dividing line: top panel → shift down, bottom panel → shift up
-const AIM_SHIFT=55; // px toward center
-
+function getAimShift(player){
+  const p=panel(player);
+  const h=p.getBoundingClientRect().height||p.offsetHeight||200;
+  return Math.round(h*0.28);
+}
 function calcAimPos(touchX,touchY,player){
-  // player 1 = top panel → shift downward (toward divider)
-  // player 2 = bottom panel → shift upward (toward divider)
-  const dy=player===1?AIM_SHIFT:-AIM_SHIFT;
+  const shift=getAimShift(player);
+  const dy=player===1?shift:-shift;
   return {x:touchX, y:touchY+dy};
 }
 
@@ -1155,9 +1160,10 @@ function addFireTouch(panelEl,player){
     e.preventDefault();
     hideCursor();
     if(gameMode==='online') sendMsg({type:'aim_end'});
-    const r=panelEl.getBoundingClientRect();
-    const fx=Math.min(r.right-2,Math.max(r.left+2,aimClientX));
-    const fy=Math.min(r.bottom-2,Math.max(r.top+2,aimClientY));
+    // Clamp against rival panel (where the shot lands)
+    const riv=rivalPanel(player).getBoundingClientRect();
+    const fx=Math.min(riv.right-2,Math.max(riv.left+2,aimClientX));
+    const fy=Math.min(riv.bottom-2,Math.max(riv.top+2,aimClientY));
     if(gameMode==='online') handleFireOnline({clientX:fx,clientY:fy});
     else handleFire({clientX:fx,clientY:fy},player);
   },{passive:false});
