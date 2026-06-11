@@ -132,6 +132,13 @@ body{
   100%{transform:translate(-50%,-50%) scale(2);opacity:0;}
 }
 .mini-exp{position:absolute;pointer-events:none;transform:translate(-50%,-50%);animation:explode .5s ease-out forwards;}
+@keyframes impact-shrink{
+  0%  {transform:translate(-50%,-50%) scale(1);}
+  30% {transform:translate(-50%,-50%) scale(1.15);}
+  100%{transform:translate(-50%,-50%) scale(.53);}
+}
+.impact-mk.hit-shrink{animation:impact-shrink .7s .4s ease-in-out forwards;}
+.impact-mk.hit-shrink.no-delay{animation:none;transform:translate(-50%,-50%) scale(.53);}
 
 /* PICKER */
 #picker{
@@ -1044,14 +1051,14 @@ function renderGamePanels(){
   history.filter(h=>h.player===riv).forEach(h=>{
     const r=ownP.getBoundingClientRect();
     const mx=h.gfx*r.width, my=mirrorFy(h.gfy)*r.height;
-    const mk=document.createElement('div');mk.className='mk impact-mk';
+    const mk=document.createElement('div');mk.className=`mk impact-mk${h.hit?' hit-shrink no-delay':''}`;;
     mk.style.left=mx+'px';mk.style.top=my+'px';
     mk.appendChild(drawImpactSVG(hex(riv),h.hit));ownP.appendChild(mk);});
 
   // ── RIVAL PANEL: show rival ships + cp's impact marks ──
   ships[riv].forEach(s=>{ if(s.wrap) s.wrap.style.display=''; });
   history.filter(h=>h.player===cp).forEach(h=>{
-    const mk=document.createElement('div');mk.className='mk impact-mk';
+    const mk=document.createElement('div');mk.className=`mk impact-mk${h.hit?' hit-shrink no-delay':''}`;;
     mk.style.left=h.mirrorX+'px';mk.style.top=h.mirrorY+'px';
     mk.appendChild(drawImpactSVG(hex(cp),h.hit));rivP.appendChild(mk);});
 
@@ -2024,6 +2031,7 @@ function updateEnemyDisplay(){
 }
 
 function renderOnlineGame(){
+  if(phase!=='game') return; // no tocar paneles durante colocación
   const myTurn=(activeTurnId===myId);
   pBot.classList.toggle('can-click',myTurn&&!firingLocked);
   pBot.classList.toggle('no-click',!myTurn||firingLocked);
@@ -2150,7 +2158,7 @@ function handleFireOnline(e){
     hitShip.hp--;
     redrawShipSVG(hitShip,hitShip.hp<=0?'#1a3060':ec);
     miniExplosion(pTop,sx,sy,mc);
-    const im=document.createElement('div');im.className='mk impact-mk no-transition';
+    const im=document.createElement('div');im.className='mk impact-mk no-transition hit-shrink';
     im.style.left=sx+'px';im.style.top=sy+'px';
     im.appendChild(drawImpactSVG(mc,true));pTop.appendChild(im);
   }
