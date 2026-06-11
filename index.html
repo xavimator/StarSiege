@@ -2,1057 +2,2451 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>PoolSplitter — Gastos</title>
-<link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#0b1a35">
-<meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="PoolSplitter">
-<link rel="apple-touch-icon" href="icon-192.png">
-<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700&family=JetBrains+Mono:wght@400;500&family=Barlow:wght@300;400;500&display=swap" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="https://cdn.jsdelivr.net/npm/gun/gun.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Star Siege</title>
 <style>
-:root{--navy:#060d1a;--felt:#0b1a35;--felt-mid:#102245;--blue:#1d4ed8;--blue-b:#3b82f6;--cyan:#38bdf8;--cyan-dim:#7dd3fc;--silver:#e2e8f0;--silver-dim:#94a3b8;--silver-dark:#475569;--white:#f8fafc;--red:#ef4444;--green:#34d399;--amber:#fbbf24;--shadow:rgba(0,0,0,.65)}
+@import url('https://fonts.googleapis.com/css2?family=Exo+2:ital,wght@0,100;0,200;0,300;1,100;1,200&family=Rajdhani:wght@300;400&display=swap');
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-body{background-color:#060d1a;background-image:radial-gradient(ellipse 90% 50% at 50% -5%,rgba(29,78,216,.22) 0%,transparent 65%),repeating-linear-gradient(0deg,transparent,transparent 47px,rgba(255,255,255,.012) 47px,rgba(255,255,255,.012) 48px),repeating-linear-gradient(90deg,transparent,transparent 47px,rgba(255,255,255,.012) 47px,rgba(255,255,255,.012) 48px);min-height:100vh;font-family:'Barlow',sans-serif;color:var(--silver);padding:2rem 1rem 5rem}
-.container{max-width:960px;margin:0 auto}
-header{text-align:center;margin-bottom:2rem}
-.header-rule{display:flex;align-items:center;gap:1rem;justify-content:center;margin-bottom:.6rem}
-.header-rule span{width:70px;height:1px}
-.header-rule span:first-child{background:linear-gradient(90deg,transparent,var(--blue-b))}
-.header-rule span:last-child{background:linear-gradient(90deg,var(--blue-b),transparent)}
-.header-rule .ball{width:9px;height:9px;border-radius:50%;background:var(--cyan);box-shadow:0 0 12px var(--cyan)}
-header h1{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:clamp(2.8rem,9vw,5.5rem);letter-spacing:.1em;color:var(--white);text-transform:uppercase;line-height:1;text-shadow:0 0 40px rgba(59,130,246,.45),0 4px 24px rgba(0,0,0,.7)}
-header h1 span{color:var(--cyan)}
-header .tagline{font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--silver-dim);letter-spacing:.2em;text-transform:uppercase;margin-top:.4rem}
-.session-bar{display:flex;align-items:center;gap:.75rem;background:var(--felt-mid);border:1px solid rgba(59,130,246,.2);border-radius:6px;padding:.7rem 1.1rem;margin-bottom:1.1rem;flex-wrap:wrap}
-.live-dot{width:8px;height:8px;border-radius:50%;background:var(--silver-dark);flex-shrink:0;transition:background .3s,box-shadow .3s}
-.live-dot.on{background:var(--green);box-shadow:0 0 8px var(--green);animation:pulse 2s infinite}
-.live-dot.off{background:var(--amber);box-shadow:0 0 6px var(--amber)}
-@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
-.conn-label{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--silver-dim);margin-right:.5rem}
-.session-id-box{background:var(--navy);border:1px solid rgba(59,130,246,.25);border-radius:4px;padding:.3rem .75rem;font-family:'JetBrains Mono',monospace;font-size:.8rem;color:var(--cyan);letter-spacing:.12em}
-.btn-copy{background:rgba(59,130,246,.1);border:1px solid rgba(59,130,246,.3);border-radius:4px;color:var(--blue-b);font-family:'Barlow Condensed',sans-serif;font-size:.88rem;letter-spacing:.1em;text-transform:uppercase;padding:.3rem .9rem;cursor:pointer;transition:all .2s}
-.btn-copy:hover{background:rgba(59,130,246,.22);color:var(--white)}
-.btn-copy.copied{color:var(--green);border-color:rgba(52,211,153,.4)}
-.mode-toggle{display:flex;border-radius:4px;overflow:hidden;border:1px solid rgba(59,130,246,.25);flex-shrink:0}
-.mode-btn{font-family:'JetBrains Mono',monospace;font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;padding:.3rem .7rem;border:none;cursor:pointer;transition:all .18s;background:transparent;color:var(--silver-dark)}
-.mode-btn.active-live{background:rgba(59,130,246,.25);color:var(--cyan)}
-.mode-btn.active-local{background:rgba(251,191,36,.18);color:var(--amber)}
-.mode-btn:hover:not(.active-live):not(.active-local){background:rgba(255,255,255,.05);color:var(--silver)}
-.nav-link{display:inline-flex;align-items:center;gap:.4rem;font-family:'Barlow Condensed',sans-serif;font-size:.9rem;letter-spacing:.1em;text-transform:uppercase;color:var(--cyan-dim);padding:.35rem 1rem;border:1px solid rgba(56,189,248,.25);border-radius:4px;text-decoration:none;transition:all .2s}
-.nav-link:hover{color:var(--white);border-color:var(--cyan)}
-.db-strip{display:flex;align-items:center;gap:.6rem;padding:.5rem .9rem;background:var(--felt-mid);border:1px solid rgba(59,130,246,.14);border-radius:5px;margin-bottom:1.1rem;flex-wrap:wrap}
-.db-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
-.db-dot.ok{background:var(--green);box-shadow:0 0 6px var(--green)}
-.db-dot.err{background:var(--red);box-shadow:0 0 6px var(--red)}
-.db-dot.off{background:var(--silver-dark)}
-.db-label{font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--silver-dim)}
-/* Admin config - hidden */
-.cfg-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:1000;align-items:center;justify-content:center}
-.cfg-overlay.open{display:flex}
-.cfg-modal{background:var(--felt);border:1px solid rgba(251,191,36,.35);border-radius:8px;padding:1.5rem;width:min(480px,90vw);box-shadow:0 20px 60px rgba(0,0,0,.8)}
-.cfg-modal h3{font-family:'Barlow Condensed',sans-serif;font-size:1.1rem;letter-spacing:.15em;text-transform:uppercase;color:var(--amber);margin-bottom:1rem}
-.cfg-grid{display:grid;gap:.7rem;margin-bottom:1rem}
-.cfg-hint{font-family:'JetBrains Mono',monospace;font-size:.65rem;color:var(--silver-dark);margin-top:.5rem}
-.card{background:var(--felt);border:1px solid rgba(59,130,246,.18);border-radius:6px;padding:1.4rem 1.6rem;margin-bottom:1.1rem;box-shadow:0 10px 36px var(--shadow),inset 0 1px 0 rgba(255,255,255,.03);position:relative;overflow:hidden}
-.card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--blue-b),transparent);opacity:.5}
-.card-title{font-family:'Barlow Condensed',sans-serif;font-weight:600;font-size:.95rem;letter-spacing:.18em;color:var(--cyan);text-transform:uppercase;margin-bottom:1.1rem;display:flex;align-items:center;gap:.6rem}
-.card-title::after{content:'';flex:1;height:1px;background:rgba(59,130,246,.18)}
-.card-title .dot{width:6px;height:6px;border-radius:50%;background:var(--cyan);box-shadow:0 0 8px var(--cyan);flex-shrink:0}
-label{font-family:'JetBrains Mono',monospace;font-size:.62rem;letter-spacing:.13em;text-transform:uppercase;color:var(--silver-dim);display:block;margin-bottom:.28rem}
-input[type="text"],input[type="date"],select{background:var(--navy);border:1px solid rgba(59,130,246,.22);border-radius:4px;color:var(--white);font-family:'JetBrains Mono',monospace;font-size:.88rem;padding:.48rem .7rem;width:100%;outline:none;transition:border-color .2s,box-shadow .2s;-webkit-appearance:none}
-select{cursor:pointer}
-input:focus,select:focus{border-color:var(--blue-b);box-shadow:0 0 0 2px rgba(59,130,246,.18)}
-input::placeholder{color:var(--silver-dark)}
-.btn-primary{background:var(--blue);border:1px solid var(--blue-b);color:var(--white);font-family:'Barlow Condensed',sans-serif;font-weight:600;letter-spacing:.13em;font-size:.98rem;text-transform:uppercase;padding:.55rem 1.5rem;border-radius:4px;cursor:pointer;transition:all .2s;box-shadow:0 0 18px rgba(29,78,216,.35)}
-.btn-primary:hover{background:var(--blue-b);transform:translateY(-1px)}
-.btn-ghost{background:transparent;border:1px solid rgba(255,255,255,.11);color:var(--silver-dim);font-family:'Barlow Condensed',sans-serif;font-weight:600;letter-spacing:.13em;font-size:.95rem;text-transform:uppercase;padding:.5rem 1.3rem;border-radius:4px;cursor:pointer;transition:all .2s}
-.btn-ghost:hover{border-color:rgba(255,255,255,.28);color:var(--silver)}
-.btn-remove{background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.22);border-radius:4px;color:#f87171;font-size:1rem;width:32px;height:32px;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .2s;line-height:1;flex-shrink:0}
-.btn-remove:hover{background:rgba(239,68,68,.25);color:var(--white)}
-.btn-add{background:rgba(59,130,246,.07);border:1px dashed rgba(59,130,246,.32);border-radius:5px;padding:.55rem 1.2rem;color:var(--blue-b);font-family:'Barlow Condensed',sans-serif;font-size:.9rem;letter-spacing:.12em;text-transform:uppercase;cursor:pointer;transition:all .2s;width:100%;margin-top:.4rem}
-.btn-add:hover{background:rgba(59,130,246,.16);border-color:var(--blue-b);color:var(--white)}
-.btn-add-sm{background:rgba(59,130,246,.07);border:1px dashed rgba(59,130,246,.28);border-radius:4px;padding:.28rem .7rem;color:var(--blue-b);font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;transition:all .2s}
-.btn-add-sm:hover{background:rgba(59,130,246,.18);color:var(--white)}
-.actions{display:flex;gap:.6rem;flex-wrap:wrap;align-items:center}
-/* PLANTILLAS */
-.template-list{display:flex;flex-wrap:wrap;gap:.5rem;margin-bottom:.8rem;min-height:2rem}
-.template-chip{display:inline-flex;align-items:center;gap:.3rem;background:rgba(59,130,246,.1);border:1px solid rgba(59,130,246,.25);border-radius:20px;padding:.25rem .6rem .25rem .8rem;font-family:'JetBrains Mono',monospace;font-size:.75rem;color:var(--cyan-dim)}
-.template-chip button{background:none;border:none;color:var(--silver-dark);cursor:pointer;font-size:.85rem;line-height:1;padding:0;transition:color .15s}
-.template-chip button:hover{color:var(--red)}
-.template-add-row{display:flex;gap:.5rem;align-items:center;flex-wrap:wrap}
-.template-add-row input,.template-add-row select{width:auto;flex:1;min-width:100px;padding:.35rem .6rem;font-size:.82rem}
-/* MESAS */
-.mesa-row{background:var(--felt-mid);border:1px solid rgba(59,130,246,.12);border-radius:5px;padding:.8rem .9rem;margin-bottom:.6rem;display:flex;flex-direction:column;gap:.55rem}
-.mesa-row:hover{border-color:rgba(59,130,246,.28)}
-.mesa-top{display:grid;grid-template-columns:1fr 70px 32px;gap:.55rem;align-items:end}
-.mesa-times{display:grid;grid-template-columns:1fr 1fr auto;gap:.55rem;align-items:end}
-.mins-display{background:rgba(56,189,248,.07);border:1px solid rgba(56,189,248,.18);border-radius:4px;padding:.45rem .7rem;font-family:'JetBrains Mono',monospace;font-size:.85rem;color:var(--cyan);white-space:nowrap}
-input[type="time"]{background:var(--navy);border:1px solid rgba(59,130,246,.22);border-radius:4px;color:var(--white);font-family:'JetBrains Mono',monospace;font-size:.85rem;padding:.45rem .6rem;width:100%;outline:none;transition:border-color .2s}
-input[type="time"]:focus{border-color:var(--blue-b);box-shadow:0 0 0 2px rgba(59,130,246,.18)}
-/* JUGADORES */
-.player-card{background:var(--felt-mid);border:1px solid rgba(59,130,246,.14);border-radius:5px;padding:.8rem .9rem;margin-bottom:.6rem;transition:border-color .2s}
-.player-card:hover{border-color:rgba(59,130,246,.3)}
-.player-header{display:flex;align-items:center;gap:.55rem;margin-bottom:.5rem}
-.pnum{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:1rem;color:rgba(59,130,246,.32);width:20px;text-align:center;flex-shrink:0}
-.player-header input[type="text"]{flex:1;background:var(--navy);border-color:rgba(59,130,246,.2);padding:.35rem .6rem;font-family:'Barlow',sans-serif;font-size:.9rem}
-.player-total{font-family:'JetBrains Mono',monospace;font-size:.82rem;color:var(--silver-dark);min-width:68px;text-align:right;flex-shrink:0}
-.player-total.has-value{color:var(--cyan);font-size:1rem;font-weight:500}
-.pmrows{display:flex;flex-direction:column;gap:.5rem;margin-bottom:.38rem}
-.pmrow{display:flex;flex-direction:column;gap:.3rem;background:rgba(0,0,0,.15);border-radius:4px;padding:.45rem .5rem}
-.pmrow-top{display:flex;gap:.4rem;align-items:center}
-.pmrow-top select{flex:1;background:var(--navy);border:1px solid rgba(59,130,246,.14);border-radius:4px;color:var(--white);font-family:'JetBrains Mono',monospace;font-size:.82rem;padding:.3rem .5rem}
-.pmrow-times{display:grid;grid-template-columns:1fr 1fr auto;gap:.4rem;align-items:center}
-.pmrow-times input[type="time"]{font-size:.78rem;padding:.3rem .5rem}
-.pmrow-mins{font-family:'JetBrains Mono',monospace;font-size:.75rem;color:var(--cyan);background:rgba(56,189,248,.07);border:1px solid rgba(56,189,248,.15);border-radius:4px;padding:.3rem .55rem;white-space:nowrap;text-align:center}
-.btn-remove-row{background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.2);border-radius:3px;color:#f87171;font-size:1rem;width:27px;height:27px;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .18s;flex-shrink:0;line-height:1}
-.btn-remove-row:hover{background:rgba(239,68,68,.22);color:var(--white)}
-/* TOTALS */
-.totals-bar{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:1px;background:rgba(59,130,246,.14);border:1px solid rgba(59,130,246,.22);border-radius:6px;overflow:hidden;margin-bottom:1.1rem;box-shadow:0 8px 30px var(--shadow)}
-.total-item{background:var(--felt-mid);padding:.9rem 1.2rem;display:flex;flex-direction:column;gap:.15rem}
-.total-label{font-family:'JetBrains Mono',monospace;font-size:.6rem;letter-spacing:.13em;text-transform:uppercase;color:var(--silver-dim)}
-.total-value{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:1.8rem;line-height:1;color:var(--cyan);letter-spacing:.02em}
-.total-value.warn{color:var(--red)}
-.total-value.ok{color:var(--green)}
-/* SUMMARY */
-.summary-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:.75rem}
-.summary-player{background:var(--felt-mid);border:1px solid rgba(59,130,246,.18);border-radius:5px;padding:.9rem 1rem;display:flex;flex-direction:column;gap:.22rem;transition:border-color .2s}
-.summary-player:hover{border-color:rgba(56,189,248,.4)}
-.summary-name{font-family:'Barlow Condensed',sans-serif;font-weight:600;font-size:1.05rem;letter-spacing:.06em;color:var(--silver);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.summary-amount{font-family:'JetBrains Mono',monospace;font-size:1.5rem;font-weight:500;color:var(--cyan);line-height:1.1}
-.summary-detail{font-family:'JetBrains Mono',monospace;font-size:.63rem;color:var(--silver-dark);line-height:1.5;margin-top:.1rem}
-.summary-empty{font-family:'JetBrains Mono',monospace;font-size:.78rem;color:var(--silver-dark);text-align:center;padding:.5rem;grid-column:1/-1}
-/* HISTORY */
-.history-session{background:var(--felt-mid);border:1px solid rgba(59,130,246,.14);border-radius:5px;padding:.8rem 1rem;margin-bottom:.6rem;cursor:pointer;transition:border-color .2s}
-.history-session:hover{border-color:rgba(59,130,246,.35)}
-.history-session-header{display:flex;align-items:center;gap:.75rem;flex-wrap:wrap}
-.history-date{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:1rem;color:var(--cyan);letter-spacing:.06em}
-.history-meta{font-family:'JetBrains Mono',monospace;font-size:.65rem;color:var(--silver-dark);flex:1}
-.history-del{background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.2);border-radius:3px;color:#f87171;font-size:.72rem;padding:.15rem .45rem;cursor:pointer;flex-shrink:0}
-.history-detail{display:none;margin-top:.7rem;font-family:'JetBrains Mono',monospace;font-size:.7rem;color:var(--silver-dim);line-height:1.7;border-top:1px solid rgba(59,130,246,.1);padding-top:.6rem}
-.history-detail.open{display:block}
-.empty-state{font-family:'JetBrains Mono',monospace;font-size:.78rem;color:var(--silver-dark);text-align:center;padding:1.2rem .5rem}
-@media(max-width:600px){.card{padding:1rem}.mesa-row{grid-template-columns:1fr 70px 80px 32px}}
+:root{
+  --c1:#ff6b35;--c2:#4ecdc4;
+  --bg:#010915;--surf:#030d1c;--border:#0a1628;
+  --text:#e8f4ff;--muted:#5a8fd4;--div:rgba(30,80,160,.4);
+}
+html,body{height:100%;overflow:hidden;touch-action:none;}
+body{
+  font-family:'Rajdhani',sans-serif;font-weight:300;
+  height:100dvh;display:flex;flex-direction:column;
+  background:var(--bg);color:var(--text);user-select:none;
+  -webkit-tap-highlight-color:transparent;
+  touch-action:none;
+}
+#starfield{position:fixed;inset:0;z-index:0;pointer-events:none;}
+#nebula{
+  position:fixed;inset:0;z-index:0;pointer-events:none;
+  background:
+    radial-gradient(ellipse 80% 50% at 15% 55%,rgba(8,35,110,.2) 0%,transparent 70%),
+    radial-gradient(ellipse 60% 40% at 85% 25%,rgba(5,20,80,.15) 0%,transparent 65%),
+    radial-gradient(ellipse 45% 65% at 50% 90%,rgba(6,28,95,.12) 0%,transparent 70%);
+}
+
+/* TOPBAR */
+#topbar{
+  position:relative;z-index:20;flex-shrink:0;
+  display:flex;align-items:center;justify-content:space-between;
+  padding:5px 10px;
+  background:linear-gradient(180deg,rgba(3,13,28,.97),rgba(1,9,21,.93));
+  border-bottom:1px solid var(--div);gap:6px;backdrop-filter:blur(10px);
+  overflow:hidden;min-width:0;
+}
+#game-title{
+  font-family:'Exo 2',sans-serif;font-weight:100;font-style:italic;
+  font-size:clamp(1rem,3.5vw,1.5rem);letter-spacing:5px;color:#a8d4ff;
+  text-transform:uppercase;text-shadow:0 0 20px rgba(80,140,255,.35);white-space:nowrap;
+  flex-shrink:0;
+}
+#phase-msg{
+  font-family:'Rajdhani',sans-serif;font-weight:300;
+  font-size:clamp(.75rem,2vw,1rem);color:var(--muted);
+  letter-spacing:2px;text-align:center;flex:1;text-transform:uppercase;
+  overflow:hidden;min-width:0;
+}
+#phase-msg b{color:var(--text);font-weight:400;}
+#scores{display:flex;gap:6px;flex-shrink:0;align-items:center;}
+.sb{text-align:center;}
+.sb-lbl{font-family:'Exo 2',sans-serif;font-weight:200;font-size:.55rem;letter-spacing:2px;opacity:.4;display:block;}
+.sb-val{font-family:'Exo 2',sans-serif;font-weight:100;font-size:clamp(1.2rem,4vw,1.8rem);letter-spacing:2px;}
+#sb1 .sb-val{color:var(--c1);text-shadow:0 0 10px var(--c1)44;}
+#sb2 .sb-val{color:var(--c2);text-shadow:0 0 10px var(--c2)44;}
+#turn-bar{width:3px;height:26px;border-radius:2px;flex-shrink:0;background:var(--muted);transition:background .4s,box-shadow .4s;}
+#turn-bar.t1{background:var(--c1);box-shadow:0 0 8px var(--c1)88;}
+#turn-bar.t2{background:var(--c2);box-shadow:0 0 8px var(--c2)88;}
+#phase-msg{display:none;}
+#pips-row{display:none;}
+.pg{display:flex;gap:2px;}
+.pip{width:6px;height:6px;border-radius:50%;background:var(--border);transition:background .2s;}
+.pip.sunk{background:#0d1e35;}
+.pip.cur1{background:var(--c1);box-shadow:0 0 4px var(--c1)99;}
+.pip.cur2{background:var(--c2);box-shadow:0 0 4px var(--c2)99;}
+
+#game-shell{display:none;flex-direction:column;flex:1;overflow:hidden;}
+#game-shell.show{display:flex;}
+/* ARENA */
+#arena{position:relative;z-index:5;display:flex;flex-direction:column;flex:1;overflow:hidden;}
+.panel{flex:1;position:relative;overflow:hidden;touch-action:manipulation;}
+.panel.can-click{cursor:crosshair;}
+.panel.no-click{pointer-events:none;}
+#panel-top{border-bottom:1px solid var(--div);background:linear-gradient(180deg,rgba(2,10,26,.28),rgba(1,7,18,.08));}
+#panel-bot{background:linear-gradient(0deg,rgba(2,10,26,.28),rgba(1,7,18,.08));}
+.ptag{
+  position:absolute;top:7px;left:11px;
+  font-family:'Exo 2',sans-serif;font-weight:100;font-style:italic;
+  font-size:clamp(.64rem,1.6vw,.88rem);letter-spacing:5px;
+  pointer-events:none;opacity:.08;text-transform:uppercase;
+}
+.ptag.editable{pointer-events:auto;opacity:.22;cursor:pointer;}
+.ptag.editable:active{opacity:.5;}
+#panel-top .ptag{color:var(--c1);}
+#panel-bot .ptag{color:var(--c2);}
+
+/* NAME EDITOR OVERLAY */
+#name-editor{
+  position:fixed;inset:0;z-index:200;
+  display:none;align-items:center;justify-content:center;
+  background:rgba(1,9,21,.82);backdrop-filter:blur(6px);
+}
+#name-editor.show{display:flex;}
+#name-editor-box{
+  display:flex;flex-direction:column;align-items:center;gap:14px;
+  padding:28px 24px;background:rgba(3,13,28,.97);
+  border:1px solid rgba(168,212,255,.15);border-radius:4px;
+  min-width:220px;
+}
+#name-editor-lbl{
+  font-family:'Exo 2',sans-serif;font-weight:100;font-style:italic;
+  font-size:.75rem;letter-spacing:4px;text-transform:uppercase;opacity:.6;
+}
+#name-editor-inp{
+  font-family:'Exo 2',sans-serif;font-weight:200;font-size:1.1rem;
+  letter-spacing:3px;text-transform:uppercase;
+  background:rgba(255,255,255,.04);border:none;
+  border-bottom:1px solid currentColor;
+  color:currentColor;outline:none;padding:6px 4px;
+  width:180px;text-align:center;
+}
+#name-editor-ok{
+  font-family:'Exo 2',sans-serif;font-size:.85rem;letter-spacing:3px;
+  padding:7px 22px;background:transparent;cursor:pointer;
+  border:1px solid currentColor;color:currentColor;border-radius:2px;
+  text-transform:uppercase;
+}
+
+/* MARKS */
+.mk{position:absolute;pointer-events:none;transform:translate(-50%,-50%);transition:left .6s ease,top .6s ease;}
+.mk svg{display:block;}
+.mk.no-transition{transition:none;}
+
+/* MINI EXPLOSION */
+@keyframes explode{
+  0%  {transform:translate(-50%,-50%) scale(.2);opacity:1;}
+  60% {transform:translate(-50%,-50%) scale(1.4);opacity:.8;}
+  100%{transform:translate(-50%,-50%) scale(2);opacity:0;}
+}
+.mini-exp{position:absolute;pointer-events:none;transform:translate(-50%,-50%);animation:explode .5s ease-out forwards;}
+
+/* PICKER */
+#picker{
+  position:fixed;bottom:0;left:0;right:0;z-index:30;
+  background:linear-gradient(0deg,rgba(3,13,28,.98),rgba(3,13,28,.92));
+  border-top:1px solid var(--div);padding:6px 10px 8px;
+  display:flex;align-items:center;gap:6px;backdrop-filter:blur(12px);
+  transform:translateY(0);transition:transform .25s ease;
+}
+#picker.hide{transform:translateY(100%);}
+#picker-msg{
+  font-family:'Exo 2',sans-serif;font-weight:200;font-size:.72rem;
+  letter-spacing:2px;text-transform:uppercase;white-space:nowrap;
+  flex-shrink:0;line-height:1.3;
+}
+#picker-btns{display:flex;gap:4px;align-items:center;}
+.pBtn{
+  display:flex;flex-direction:column;align-items:center;gap:2px;
+  padding:4px 7px;border:1px solid rgba(255,255,255,.07);background:rgba(255,255,255,.03);
+  cursor:pointer;border-radius:2px;transition:border-color .15s,background .15s;
+}
+.pBtn.selected{background:rgba(255,255,255,.09);}
+.pBtn.disabled{opacity:.25;cursor:default;}
+.pBtn-shape{display:flex;align-items:center;justify-content:center;height:22px;}
+.pBtn-count{font-family:'Exo 2',sans-serif;font-weight:300;font-size:.65rem;letter-spacing:1px;opacity:.9;}
+#rand-btn{
+  font-family:'Exo 2',sans-serif;font-weight:200;font-size:.62rem;letter-spacing:2px;
+  padding:5px 10px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.05);
+  cursor:pointer;border-radius:2px;color:var(--text);text-transform:uppercase;white-space:nowrap;
+  flex-shrink:0;transition:background .15s;
+}
+#rand-btn:hover{background:rgba(255,255,255,.1);}
+
+/* TOAST */
+#toast{
+  position:fixed;left:50%;bottom:14px;transform:translateX(-50%) translateY(80px);
+  z-index:50;pointer-events:none;
+  display:flex;align-items:center;gap:10px;padding:6px 14px;
+  background:rgba(3,13,28,.93);border:1px solid var(--div);border-radius:3px;
+  backdrop-filter:blur(10px);transition:transform .22s ease,opacity .22s ease;opacity:0;
+}
+#toast.show{transform:translateX(-50%) translateY(0);opacity:1;}
+#toast-err{font-family:'Exo 2',sans-serif;font-weight:100;font-size:clamp(1.8rem,6vw,2.8rem);letter-spacing:3px;}
+#toast-err.perfect{color:#e8ff00;text-shadow:0 0 12px #e8ff0077;}
+#toast-err.good{color:#7dff7d;text-shadow:0 0 10px #7dff7d55;}
+#toast-err.ok{color:#ffcc00;}
+#toast-err.bad{color:#ff4444;}
+#toast-msg{font-family:'Rajdhani',sans-serif;font-weight:300;font-size:.96rem;letter-spacing:2px;color:var(--muted);text-transform:uppercase;}
+
+/* HANDOFF LABEL */
+#handoff-veil{
+  position:absolute;inset:0;z-index:15;
+  display:flex;align-items:center;justify-content:center;
+  pointer-events:all;opacity:0;transition:opacity .2s;
+  background:transparent;
+}
+#handoff-veil.show{opacity:1;}
+#handoff-veil.hide{opacity:0;pointer-events:none;}
+#hv-msg{
+  font-family:'Exo 2',sans-serif;font-weight:100;font-style:italic;
+  font-size:clamp(1.2rem,5vw,2rem);letter-spacing:5px;
+  text-transform:uppercase;
+  color:transparent;
+  -webkit-text-stroke:1.5px currentColor;
+  text-shadow:none;
+  pointer-events:none;
+}
+#hv-btn{
+  position:absolute;inset:0;width:100%;height:100%;
+  background:transparent;border:none;cursor:pointer;
+  opacity:0;
+}
+
+/* FINAL */
+#final-overlay{
+  position:fixed;inset:0;z-index:100;
+  background:rgba(1,9,21,.97);backdrop-filter:blur(8px);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:14px;padding:20px;text-align:center;opacity:0;pointer-events:none;transition:opacity .3s;
+}
+#final-overlay.show{opacity:1;pointer-events:all;}
+#fo-title{font-family:'Exo 2',sans-serif;font-weight:100;font-style:italic;font-size:clamp(2rem,10vw,3.6rem);letter-spacing:7px;color:#a8d4ff;text-transform:uppercase;text-shadow:0 0 24px rgba(80,140,255,.3);}
+#fo-winner{font-family:'Exo 2',sans-serif;font-weight:200;font-style:italic;font-size:clamp(1.6rem,6vw,2.2rem);letter-spacing:4px;text-transform:uppercase;}
+#fo-table{display:flex;flex-direction:column;gap:3px;width:100%;max-width:420px;max-height:40vh;overflow-y:auto;}
+.ftr{display:grid;grid-template-columns:1.2rem 1fr 1fr .9fr;gap:6px;align-items:center;
+  font-family:'Rajdhani',sans-serif;font-weight:300;font-size:.92rem;letter-spacing:1px;text-transform:uppercase;
+  padding:3px 8px;background:rgba(3,13,28,.8);border-radius:2px;}
+.ftr.hdr{color:var(--muted);font-size:.8rem;background:transparent;}
+.fe1{color:var(--c1);font-weight:400;text-align:right;}
+.fe2{color:var(--c2);font-weight:400;text-align:right;}
+.few{text-align:right;font-size:.8rem;}
+.fen{color:var(--muted);}
+#fo-totals{display:flex;gap:24px;justify-content:center;}
+.fo-tot{text-align:center;}
+.fo-tot-lbl{font-family:'Exo 2',sans-serif;font-weight:200;font-size:.72rem;letter-spacing:3px;opacity:.4;display:block;margin-bottom:3px;text-transform:uppercase;}
+.fo-tot-val{font-family:'Exo 2',sans-serif;font-weight:100;font-size:clamp(1.7rem,6vw,2.4rem);letter-spacing:2px;}
+#fo-t1 .fo-tot-val{color:var(--c1);}
+#fo-t2 .fo-tot-val{color:var(--c2);}
+.fo-btn{font-family:'Exo 2',sans-serif;font-weight:200;font-size:1.24rem;letter-spacing:4px;padding:9px 24px;border:none;cursor:pointer;text-transform:uppercase;background:rgba(100,160,255,.1);color:#a8d4ff;border:1px solid rgba(80,130,220,.2);transition:transform .1s,background .15s;}
+.fo-btn:hover{transform:scale(1.04);background:rgba(100,160,255,.18);}
+.tag{font-family:'Exo 2',sans-serif;font-weight:200;font-size:.76rem;letter-spacing:2px;padding:2px 6px;}
+.tg1{background:var(--c1);color:#000;}.tg2{background:var(--c2);color:#000;}.tgt{background:#0d1e35;color:var(--text);}
 </style>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-</head>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+<style>
+/* ══════════ LOBBY ══════════ */
+#lobby{
+  position:fixed;inset:0;z-index:200;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:20px;padding:24px 20px;
+  background:rgba(1,9,21,.97);backdrop-filter:blur(10px);
+}
+#lobby.hide{display:none;}
+#lobby-title{
+  font-family:'Exo 2',sans-serif;font-weight:100;font-style:italic;
+  font-size:clamp(2rem,8vw,3.2rem);letter-spacing:10px;
+  color:#d8eeff;text-transform:uppercase;
+  text-shadow:0 0 30px rgba(100,180,255,.7),0 0 60px rgba(60,130,255,.3);
+  margin-bottom:4px;
+}
+.lobby-field{display:flex;flex-direction:column;gap:6px;width:100%;max-width:300px;}
+.lobby-lbl{
+  font-family:'Exo 2',sans-serif;font-weight:200;font-size:.72rem;
+  letter-spacing:4px;color:#7ab0e8;text-transform:uppercase;
+}
+.lobby-input{
+  font-family:'Exo 2',sans-serif;font-weight:200;font-size:1.05rem;
+  letter-spacing:2px;padding:9px 13px;
+  background:rgba(168,212,255,.05);border:1px solid rgba(100,160,240,.3);
+  color:#e8f4ff;outline:none;border-radius:2px;text-align:center;
+}
+.lobby-input::placeholder{color:rgba(168,212,255,.25);}
+.lobby-input:focus{border-color:rgba(168,212,255,.65);background:rgba(168,212,255,.08);}
+.lobby-modes{display:flex;gap:8px;width:100%;max-width:300px;}
+.mode-btn{
+  flex:1;padding:10px 6px;
+  font-family:'Exo 2',sans-serif;font-weight:200;font-size:.68rem;letter-spacing:2px;
+  text-transform:uppercase;border:1px solid rgba(100,160,240,.2);
+  background:rgba(255,255,255,.03);color:#7ab0e8;cursor:pointer;
+  border-radius:2px;transition:all .15s;
+}
+.mode-btn.active{
+  background:rgba(168,212,255,.12);border-color:rgba(168,212,255,.55);
+  color:#d8eeff;text-shadow:0 0 8px rgba(168,212,255,.4);
+}
+.lobby-btn{
+  font-family:'Exo 2',sans-serif;font-weight:200;font-size:.9rem;letter-spacing:5px;
+  padding:12px 28px;border:none;cursor:pointer;text-transform:uppercase;
+  transition:transform .1s,opacity .15s,box-shadow .15s;
+  width:100%;max-width:300px;border-radius:2px;
+}
+.lobby-btn:hover{transform:scale(1.02);box-shadow:0 0 20px rgba(168,212,255,.2);}
+.lobby-btn:active{transform:scale(.97);}
+.lobby-btn:disabled{opacity:.35;cursor:default;transform:none;box-shadow:none;}
+#lobby-status{
+  font-family:'Rajdhani',sans-serif;font-weight:300;font-size:.95rem;
+  letter-spacing:2px;color:#7ab0e8;text-transform:uppercase;
+  text-align:center;min-height:1.2em;
+}
+#lobby-url-box{
+  display:none;flex-direction:column;gap:6px;width:100%;max-width:300px;
+}
+#lobby-url-box.show{display:flex;}
+#lobby-url{
+  font-family:'Exo 2',sans-serif;font-weight:200;font-size:.62rem;
+  letter-spacing:1px;padding:7px 10px;word-break:break-all;
+  background:rgba(168,212,255,.07);border:1px solid rgba(168,212,255,.2);
+  color:#a8d4ff;border-radius:2px;text-align:center;
+}
+#lobby-copy{
+  font-family:'Exo 2',sans-serif;font-weight:200;font-size:.65rem;
+  letter-spacing:3px;padding:6px;border:1px solid rgba(168,212,255,.25);
+  background:rgba(168,212,255,.06);color:#a8d4ff;cursor:pointer;
+  text-transform:uppercase;border-radius:2px;transition:background .15s;
+}
+#lobby-copy:hover{background:rgba(168,212,255,.12);}
+/* INVASION ALERT */
+#invasion-alert{
+  position:fixed;inset:0;z-index:180;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:14px;pointer-events:none;opacity:0;
+  transition:opacity .4s;
+}
+#invasion-alert.show{opacity:1;}
+#invasion-title{
+  font-family:'Exo 2',sans-serif;font-weight:100;font-style:italic;
+  font-size:clamp(1.1rem,4vw,1.8rem);letter-spacing:5px;
+  color:#ff4444;text-transform:uppercase;
+  text-shadow:0 0 20px rgba(255,68,68,.6);
+  animation:pulse-red 1s ease-in-out infinite;
+}
+@keyframes pulse-red{
+  0%,100%{text-shadow:0 0 20px rgba(255,68,68,.6);}
+  50%{text-shadow:0 0 40px rgba(255,68,68,1),0 0 60px rgba(255,68,68,.4);}
+}
+#invasion-countdown{
+  font-family:'Exo 2',sans-serif;font-weight:100;
+  font-size:clamp(2.5rem,12vw,5rem);letter-spacing:4px;
+  color:#a8d4ff;
+}
+/* ROOMS LIST */
+#lobby-rooms{display:none;flex-direction:column;gap:6px;width:100%;max-width:300px;}
+#lobby-rooms.show{display:flex;}
+.room-lbl{
+  font-family:'Exo 2',sans-serif;font-weight:200;font-size:.65rem;
+  letter-spacing:4px;text-transform:uppercase;color:#a8d4ff;opacity:.5;
+}
+.room-item{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:8px 12px;
+  background:rgba(168,212,255,.04);
+  border:1px solid rgba(168,212,255,.12);
+  border-radius:2px;cursor:pointer;
+  transition:background .15s,border-color .15s;
+}
+.room-item:active{background:rgba(168,212,255,.1);border-color:rgba(168,212,255,.3);}
+.room-code{
+  font-family:'Exo 2',sans-serif;font-weight:200;font-size:.9rem;
+  letter-spacing:4px;color:#a8d4ff;text-transform:uppercase;
+}
+.room-info{
+  font-family:'Exo 2',sans-serif;font-weight:100;font-size:.6rem;
+  letter-spacing:2px;color:#a8d4ff;opacity:.45;
+  text-transform:uppercase;
+}
+.room-empty{
+  font-family:'Exo 2',sans-serif;font-weight:100;font-size:.65rem;
+  letter-spacing:3px;color:#a8d4ff;opacity:.3;text-transform:uppercase;
+  text-align:center;padding:8px 0;
+}
+#lobby-new-room{
+  font-family:'Exo 2',sans-serif;font-weight:200;font-size:.7rem;
+  letter-spacing:3px;text-transform:uppercase;
+  background:transparent;border:1px solid rgba(168,212,255,.18);
+  color:#a8d4ff;padding:7px 14px;cursor:pointer;border-radius:2px;
+  opacity:.6;transition:opacity .15s;
+}
+#lobby-new-room:active{opacity:1;}
+#aim-cursor{
+  position:fixed;pointer-events:none;z-index:100;
+  width:48px;height:48px;
+  transform:translate(-50%,-50%);
+  display:none;
+}
+#aim-cursor.show{display:block;}
+</style>
 <body>
-<div class="container">
-
-<!-- ADMIN CONFIG MODAL (hidden, Ctrl+Shift+K) -->
-<div class="cfg-overlay" id="cfgOverlay" onclick="if(event.target===this)closeCfg()">
-  <div class="cfg-modal">
-    <h3>⚙ Configuración de base de datos</h3>
-    <div class="cfg-grid">
-      <div>
-        <label>Project URL</label>
-        <input type="text" id="cfgUrl" placeholder="https://xxxx.supabase.co" oninput="saveCfg()">
-      </div>
-      <div>
-        <label>Anon Key</label>
-        <input type="text" id="cfgKey" placeholder="eyJ…" oninput="saveCfg()">
-      </div>
+<!-- LOBBY -->
+<div id="lobby">
+  <div id="lobby-title">Star Siege</div>
+  <div class="lobby-field">
+    <div class="lobby-lbl" id="lbl-name1">Comandante</div>
+    <input class="lobby-input" id="lobby-name" placeholder="Jugador 1" maxlength="16" autocomplete="off"/>
+  </div>
+  <!-- Color picker — solo visible en modo online -->
+  <div class="lobby-field" id="lobby-color-row" style="display:none">
+    <div class="lobby-lbl">Color</div>
+    <div style="display:flex;gap:12px;align-items:center;">
+      <button id="color-orange" style="width:30px;height:30px;border-radius:50%;border:3px solid #ff6b35;background:#ff6b35;cursor:pointer;box-shadow:0 0 10px #ff6b3599;transition:opacity .15s,box-shadow .15s;"></button>
+      <button id="color-teal" style="width:30px;height:30px;border-radius:50%;border:2px solid #4ecdc466;background:#4ecdc4;cursor:pointer;opacity:.4;transition:opacity .15s,box-shadow .15s;"></button>
     </div>
-    <div style="display:flex;gap:.6rem;justify-content:flex-end">
-      <button class="btn-ghost" onclick="closeCfg()">Cerrar</button>
-      <button class="btn-primary" onclick="applyConfig()">Conectar</button>
+  </div>
+  <div class="lobby-field" id="lobby-j2-row">
+    <div class="lobby-lbl" style="color:var(--c2)">Comandante</div>
+    <input class="lobby-input" id="lobby-name2" placeholder="Jugador 2" maxlength="16" autocomplete="off" style="border-color:rgba(78,205,196,.4);color:var(--c2);"/>
+  </div>
+  <div class="lobby-field">
+    <div class="lobby-lbl">Modo</div>
+    <div class="lobby-modes">
+      <button class="mode-btn active" id="mode-local">⚔ Local</button>
+      <button class="mode-btn" id="mode-train">🛸 Entrenamiento</button>
+      <button class="mode-btn" id="mode-battle">🌐 Batalla online</button>
     </div>
-    <p class="cfg-hint">Acceso: Ctrl+Shift+K</p>
+  </div>
+  <div id="lobby-url-box">
+    <div id="lobby-url">—</div>
+    <button id="lobby-copy">📋 Copiar enlace</button>
+  </div>
+  <!-- ONLINE ROOMS LIST -->
+  <div id="lobby-rooms">
+    <div class="room-lbl">Partidas en curso</div>
+    <div id="room-list"><div class="room-empty">Buscando salas…</div></div>
+    <button id="lobby-new-room">+ Nueva partida</button>
+  </div>
+  <div id="lobby-status"></div>
+  <button class="lobby-btn" id="lobby-start" style="background:rgba(168,212,255,.1);color:#a8d4ff;border:1px solid rgba(168,212,255,.2);">
+    Comenzar
+  </button>
+</div>
+
+<!-- INVASION ALERT (training mode) -->
+<div id="invasion-alert">
+  <div id="invasion-title">⚠ Our siege is under attack!</div>
+  <div id="invasion-countdown">3</div>
+</div>
+
+
+<div id="aim-cursor"></div>
+<canvas id="starfield"></canvas>
+<div id="nebula"></div>
+<div id="game-shell">
+<div id="topbar">
+  <div id="game-title">Star Siege<button id="invite-btn" style="display:none;margin-left:8px;background:transparent;border:none;color:#a8d4ff;font-size:.75rem;cursor:pointer;letter-spacing:1px;opacity:.55;padding:0;vertical-align:middle;" title="Copiar enlace">🔗</button></div>
+  <div id="scores">
+    <div class="sb" id="sb1"><span class="sb-lbl">J1</span><span class="sb-val">0</span></div>
+    <div id="turn-bar"></div>
+    <div class="sb" id="sb2"><span class="sb-lbl">J2</span><span class="sb-val">0</span></div>
   </div>
 </div>
-
-<datalist id="dlPlayers"></datalist>
-<datalist id="dlTables"></datalist>
-
-<header>
-  <div class="header-rule"><span></span><div class="ball"></div><span></span></div>
-  <h1>POOL<span>SPLITTER</span></h1>
-  <p class="tagline">// repartidor de gastos · mesas de billar //</p>
-</header>
-
-<!-- DB STATUS -->
-<div style="display:none" id="dbDot" data-state="off"></div>
-<span style="display:none" id="dbLabel"></span>
-
-<!-- SESSION BAR -->
-<div class="session-bar">
-  <div class="live-dot" id="liveDot"></div>
-  <span class="conn-label" id="connLabel">Solo local</span>
-  <div class="mode-toggle">
-    <button class="mode-btn active-local" id="btnLocal" onclick="setMode('local')">Solo local</button>
-    <button class="mode-btn" id="btnLive" onclick="setMode('live')">En directo</button>
-  </div>
-  <div style="display:flex;align-items:center;gap:.4rem;flex:1;min-width:160px">
-    <label style="margin:0;font-size:.6rem;letter-spacing:.1em;color:var(--silver-dark);white-space:nowrap">CÓDIGO</label>
-    <input id="sessionCodeInput" type="text" maxlength="12"
-      style="background:var(--navy);border:1px solid rgba(59,130,246,.3);border-radius:4px;color:var(--cyan);font-family:'JetBrains Mono',monospace;font-size:.88rem;padding:.3rem .6rem;width:110px;letter-spacing:.12em;text-transform:uppercase;outline:none"
-      placeholder="CÓDIGO"
-      onkeydown="if(event.key==='Enter')joinSession()"
-      oninput="this.value=this.value.toUpperCase().replace(/[^A-Z0-9]/g,'')">
-    <button class="btn-copy" onclick="joinSession()" style="white-space:nowrap">Unirse</button>
-  </div>
-  <button class="btn-copy" id="btnCopy" onclick="openShare()" title="Copiar enlace" style="font-size:1.1rem;padding:.3rem .6rem">🔗</button>
-  <a class="nav-link" id="linkPartidas" href="partidas.html">Partidas →</a>
+<div id="arena">
+  <div class="panel no-click" id="panel-top"><div class="ptag">Jugador 1</div></div>
+  <div class="panel no-click" id="panel-bot"><div class="ptag">Jugador 2</div></div>
 </div>
-
-<!-- DATE + ACTIONS -->
-<div class="session-bar" style="justify-content:space-between;flex-wrap:wrap;gap:.6rem">
-  <div style="display:flex;align-items:center;gap:.6rem">
-    <label style="margin:0;font-size:.65rem">Fecha de juego</label>
-    <input type="date" id="sessionDate" style="background:var(--navy);border:1px solid rgba(59,130,246,.25);border-radius:4px;color:var(--white);font-family:'JetBrains Mono',monospace;font-size:.85rem;padding:.35rem .6rem;outline:none;width:auto" onchange="saveLocal()">
-  </div>
-  <div class="actions">
-    <button class="btn-ghost" style="font-size:.82rem;padding:.35rem 1rem" onclick="loadSessionByDate()">📅 Cargar del día</button>
-    <button class="btn-ghost" style="font-size:.82rem;padding:.35rem 1rem" onclick="saveSession()">💾 Guardar sesión</button>
-    <button class="btn-ghost" style="font-size:.82rem;padding:.35rem 1rem" onclick="toggleHistory()">📚 Historial</button>
-    <button class="btn-ghost" style="font-size:.82rem;padding:.35rem 1rem" onclick="exportCSV()">⬇ Exportar CSV</button>
-    <label class="btn-ghost" style="font-size:.82rem;padding:.35rem 1rem;cursor:pointer">⬆ Importar CSV<input type="file" accept=".csv" style="display:none" onchange="importCSV(this)"></label>
+<div id="picker"><div id="picker-msg"></div><div id="picker-btns"></div><button id="rand-btn">⚄ Aleatorio</button></div>
+</div><!-- /game-shell -->
+<div id="handoff-veil" class="hide">
+  <div id="hv-msg"></div>
+  <button id="hv-btn"></button>
+</div>
+<!-- NAME EDITOR -->
+<div id="name-editor">
+  <div id="name-editor-box">
+    <div id="name-editor-lbl">Nombre</div>
+    <input id="name-editor-inp" type="text" maxlength="16" autocomplete="off"/>
+    <button id="name-editor-ok">✓ Confirmar</button>
   </div>
 </div>
-
-<!-- PLANTILLA JUGADORES -->
-<div class="card">
-  <div class="card-title"><div class="dot"></div>Plantilla de jugadores</div>
-  <div class="template-list" id="playerTemplateList"></div>
-  <div class="template-add-row">
-    <input type="text" id="newPlayerName" placeholder="Nombre del jugador" onkeydown="if(event.key==='Enter')addGlobalPlayer()">
-    <button class="btn-ghost" style="font-size:.85rem;padding:.35rem 1rem;white-space:nowrap" onclick="addGlobalPlayer()">+ Añadir</button>
+<div id="toast"><div id="toast-err">—</div><div id="toast-msg">—</div></div>
+<!-- INVITE OVERLAY -->
+<div id="invite-overlay" style="
+  display:none;position:fixed;inset:0;z-index:300;
+  align-items:center;justify-content:center;
+  background:rgba(1,9,21,.88);backdrop-filter:blur(8px);">
+  <div id="invite-box" style="
+    display:flex;flex-direction:column;align-items:center;gap:18px;
+    padding:32px 28px;background:rgba(3,13,28,.97);
+    border:1px solid rgba(30,80,160,.5);border-radius:4px;min-width:220px;">
+    <div style="font-family:'Exo 2',sans-serif;font-weight:200;font-size:.7rem;
+      letter-spacing:4px;color:#a8d4ff;text-transform:uppercase;">Invitar</div>
+    <div id="invite-url" style="font-family:'Rajdhani',sans-serif;font-weight:300;
+      font-size:.7rem;color:#5a8fd4;letter-spacing:1px;word-break:break-all;text-align:center;max-width:240px;"></div>
+    <div style="display:flex;gap:12px;">
+      <button id="invite-copy-btn" style="
+        font-family:'Rajdhani',sans-serif;font-weight:400;font-size:.8rem;
+        letter-spacing:2px;text-transform:uppercase;
+        background:rgba(168,212,255,.08);color:#a8d4ff;
+        border:1px solid rgba(168,212,255,.25);padding:8px 18px;
+        cursor:pointer;border-radius:2px;">📋 Copiar</button>
+      <button id="invite-qr-btn" style="
+        font-family:'Rajdhani',sans-serif;font-weight:400;font-size:.8rem;
+        letter-spacing:2px;text-transform:uppercase;
+        background:rgba(168,212,255,.08);color:#a8d4ff;
+        border:1px solid rgba(168,212,255,.25);padding:8px 18px;
+        cursor:pointer;border-radius:2px;">▦ QR</button>
+    </div>
+    <div id="invite-qr-wrap" style="display:none;">
+      <img id="invite-qr-img" style="width:160px;height:160px;border-radius:4px;" src="" alt="QR"/>
+    </div>
+    <button id="invite-close-btn" style="
+      background:transparent;border:none;color:#5a8fd4;
+      font-size:.7rem;letter-spacing:2px;cursor:pointer;
+      text-transform:uppercase;font-family:'Rajdhani',sans-serif;">✕ Cerrar</button>
   </div>
 </div>
-
-<!-- PLANTILLA MESAS -->
-<div class="card">
-  <div class="card-title"><div class="dot"></div>Plantilla de mesas</div>
-  <div class="template-list" id="tableTemplateList"></div>
-  <div class="template-add-row">
-    <input type="text" id="newTableName" placeholder="Nombre de la mesa" onkeydown="if(event.key==='Enter')addGlobalTable()">
-    <select id="newTablePrice" style="max-width:90px">
-      <script>for(let p=0;p<=100;p++) document.write(`<option value="${p}"${p===10?' selected':''}>${p}€/h</option>`)</script>
-    </select>
-    <button class="btn-ghost" style="font-size:.85rem;padding:.35rem 1rem;white-space:nowrap" onclick="addGlobalTable()">+ Añadir</button>
+<div id="phase-msg" style="display:none"></div>
+<div id="pips-row" style="display:none"><div class="pg" id="pg1"></div><div class="pg" id="pg2"></div></div>
+<div id="final-overlay">
+  <div id="fo-title">Fin de la batalla</div>
+  <div id="fo-winner"></div>
+  <div id="fo-table"></div>
+  <div id="fo-totals">
+    <div class="fo-tot" id="fo-t1"><span class="fo-tot-lbl">J1 Media</span><div class="fo-tot-val" id="fo-t1v">—</div></div>
+    <div class="fo-tot" id="fo-t2"><span class="fo-tot-lbl">J2 Media</span><div class="fo-tot-val" id="fo-t2v">—</div></div>
   </div>
+  <button class="fo-btn" id="fo-replay">↺ Nueva batalla</button>
 </div>
 
-<!-- TOTALS -->
-<div class="totals-bar">
-  <div class="total-item"><div class="total-label">Mesas</div><div class="total-value" id="totMesas">0</div></div>
-  <div class="total-item"><div class="total-label">Total a repartir</div><div class="total-value" id="totImporte">0.00€</div></div>
-  <div class="total-item"><div class="total-label">Jugadores</div><div class="total-value" id="totJugadores">0</div></div>
-  <div class="total-item"><div class="total-label">Diferencia</div><div class="total-value ok" id="totDiff">0.00€</div></div>
-</div>
-
-<!-- MESAS DE SESIÓN -->
-<div class="card">
-  <div class="card-title"><div class="dot"></div>Mesas de la sesión</div>
-  <div id="tablesList"></div>
-  <div style="display:flex;gap:.5rem;margin-top:.4rem;flex-wrap:wrap">
-    <button class="btn-add" style="flex:1;min-width:140px" onclick="addMesa()">+ Mesa nueva</button>
-    <button class="btn-add" style="flex:1;min-width:140px" id="btnFromTemplate" onclick="addMesaFromTemplate()" style="display:none">+ Desde plantilla</button>
-  </div>
-</div>
-
-<!-- JUGADORES DE SESIÓN -->
-<div class="card">
-  <div class="card-title"><div class="dot"></div>Jugadores</div>
-  <div id="playerCards"></div>
-  <div style="display:flex;gap:.5rem;margin-top:.4rem;flex-wrap:wrap">
-    <button class="btn-add" style="flex:1;min-width:140px" id="addPlayerBtn" onclick="addJugador()">+ Jugador nuevo</button>
-    <button class="btn-add" style="flex:1;min-width:140px" id="btnPlayerFromTemplate" onclick="addJugadorFromTemplate()">+ Desde plantilla</button>
-  </div>
-</div>
-
-<!-- RESUMEN -->
-<div class="card">
-  <div class="card-title"><div class="dot"></div>Resumen de pagos</div>
-  <div class="summary-grid" id="summaryGrid"><div class="summary-empty">Añade jugadores y mesas para ver el reparto.</div></div>
-</div>
-
-<!-- HISTORIAL -->
-<div class="card" id="historyPanel" style="display:none">
-  <div class="card-title"><div class="dot"></div>Historial de sesiones</div>
-  <div id="historyList"><div class="empty-state">No hay sesiones guardadas todavía.</div></div>
-</div>
-
-</div><!-- /container -->
 <script>
-// ══════════════════════════════════════════════
-//  SUPABASE (hidden config, Ctrl+Shift+K)
-// ══════════════════════════════════════════════
-let SUPA_URL = 'https://qbkukfpkcxoxiaewngvx.supabase.co';
-let SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFia3VrZnBrY3hveGlhZXduZ3Z4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkyMjYyMTMsImV4cCI6MjA5NDgwMjIxM30.qAY7A0oFi4HiNyOEp3PgTUgnaNKzwKCY8rpn4cj4XAo';
-let sb = null, sbReady = false;
+/* ══════════════ STARFIELD ══════════════ */
+(function(){
+  const cv=document.getElementById('starfield'),ctx=cv.getContext('2d');let stars=[];
+  function resize(){cv.width=innerWidth;cv.height=innerHeight;build();}
+  function build(){stars=[];const n=Math.floor(cv.width*cv.height/900);
+    for(let i=0;i<n;i++){const t=Math.random();let rv,gv,bv;const c=Math.random();
+      if(c<.6){rv=170;gv=195;bv=255;}else if(c<.78){rv=130;gv=165;bv=255;}
+      else if(c<.9){rv=200;gv=218;bv=255;}else if(c<.96){rv=255;gv=215;bv=170;}else{rv=150;gv=190;bv=255;}
+      stars.push({x:Math.random()*cv.width,y:Math.random()*cv.height,
+        r:t<.55?Math.random()*.38+.1:t<.85?Math.random()*.65+.28:Math.random()*1.2+.6,
+        base:t<.35?Math.random()*.07+.02:t<.7?Math.random()*.13+.04:Math.random()*.26+.1,
+        tw:Math.random()*.5+.1,sp:Math.random()*.4+.07,ph:Math.random()*Math.PI*2,rv,gv,bv});}}
+  let tt=0;
+  function draw(){ctx.clearRect(0,0,cv.width,cv.height);tt+=.016;
+    for(const s of stars){const a=Math.max(0,Math.min(1,s.base+Math.sin(tt*s.sp+s.ph)*s.tw*s.base));
+      if(s.r>.6&&a>.1){const g=ctx.createRadialGradient(s.x,s.y,0,s.x,s.y,s.r*3.5);
+        g.addColorStop(0,`rgba(${s.rv},${s.gv},${s.bv},${a*.45})`);g.addColorStop(1,`rgba(${s.rv},${s.gv},${s.bv},0)`);
+        ctx.globalAlpha=1;ctx.beginPath();ctx.arc(s.x,s.y,s.r*3.5,0,Math.PI*2);ctx.fillStyle=g;ctx.fill();}
+      ctx.globalAlpha=a;ctx.beginPath();ctx.arc(s.x,s.y,s.r,0,Math.PI*2);
+      ctx.fillStyle=`rgb(${s.rv},${s.gv},${s.bv})`;ctx.fill();}
+    ctx.globalAlpha=1;requestAnimationFrame(draw);}
+  addEventListener('resize',resize);resize();draw();
+})();
 
-function saveCfg() {
-  const u = document.getElementById('cfgUrl').value.trim();
-  const k = document.getElementById('cfgKey').value.trim();
-  if (u) SUPA_URL = u;
-  if (k) SUPA_KEY = k;
+/* ══════════════ SVG HELPERS ══════════════ */
+function ns(t){return document.createElementNS('http://www.w3.org/2000/svg',t);}
+function mkSVG(w,h){const s=ns('svg');s.setAttribute('width',w);s.setAttribute('height',h);
+  s.setAttribute('viewBox',`0 0 ${w} ${h}`);s.setAttribute('overflow','visible');return s;}
+function addEl(svg,tag,attr){const e=ns(tag);Object.entries(attr).forEach(([k,v])=>e.setAttribute(k,v));svg.appendChild(e);return e;}
+
+/* ══════════════ SHIP TYPES ══════════════
+  hp: hit points to sink
+  canMove: dodge on hit
+  size: {w,h} in px — actual visual hit area
+  hitPx: max pixel distance from centre to count as a hit
+         (will be computed from panel size + ship size)
+  draws: function(color, hpLeft, maxHp) → SVG
+*/
+const SHIP_TYPES = [
+  {
+    id:'xl', label:'Grande', quota:1, hp:3, canMove:true,
+    w:28, h:28,
+    draw(color,hp,maxHp){
+      const sunk=hp<=0;
+      const a=sunk?.18:.4+.6*(hp/maxHp), svg=mkSVG(28,28), cx=14, cy=14;
+      addEl(svg,'circle',{cx,cy,r:12,stroke:color,'stroke-width':1.2,fill:'none',opacity:a*.5});
+      addEl(svg,'circle',{cx,cy,r:7, stroke:color,'stroke-width':.8,fill:'none',opacity:a*.65});
+      addEl(svg,'circle',{cx,cy,r:2.5,fill:color,opacity:a});
+      for(let i=0;i<8;i++){const ang=i*Math.PI/4,r1=9,r2=13;
+        addEl(svg,'line',{x1:cx+r1*Math.cos(ang),y1:cy+r1*Math.sin(ang),x2:cx+r2*Math.cos(ang),y2:cy+r2*Math.sin(ang),stroke:color,'stroke-width':i%2===0?1:.6,opacity:a*.7});}
+      for(let d=0;d<maxHp-hp;d++){const ang=d*(Math.PI*2/3);
+        addEl(svg,'line',{x1:cx+4*Math.cos(ang),y1:cy+4*Math.sin(ang),x2:cx+7*Math.cos(ang),y2:cy+7*Math.sin(ang),stroke:'#ff4444','stroke-width':1.5,opacity:.9});}
+      return svg;
+    }
+  },
+  {
+    id:'md', label:'Mediana', quota:2, hp:2, canMove:true,
+    w:18, h:18,
+    draw(color,hp,maxHp){
+      const sunk=hp<=0;
+      const a=sunk?.18:.4+.6*(hp/maxHp), svg=mkSVG(18,18), cx=9, cy=9;
+      addEl(svg,'polygon',{points:`${cx},${cy-8} ${cx+8},${cy} ${cx},${cy+8} ${cx-8},${cy}`,stroke:color,'stroke-width':1.1,fill:'none',opacity:a*.7});
+      addEl(svg,'circle',{cx,cy,r:2,fill:color,opacity:a});
+      for(let d=0;d<maxHp-hp;d++){const ang=d*Math.PI;
+        addEl(svg,'line',{x1:cx+2*Math.cos(ang),y1:cy+2*Math.sin(ang),x2:cx+5*Math.cos(ang),y2:cy+5*Math.sin(ang),stroke:'#ff4444','stroke-width':1.4,opacity:.9});}
+      return svg;
+    }
+  },
+  {
+    id:'lg', label:'Larga', quota:2, hp:2, canMove:false,
+    w:32, h:8,
+    draw(color,hp,maxHp){
+      const sunk=hp<=0;
+      const a=sunk?.18:.4+.6*(hp/maxHp), svg=mkSVG(32,8), cx=16, cy=4;
+      addEl(svg,'rect',{x:1,y:1,width:30,height:6,stroke:color,'stroke-width':.8,fill:'none',rx:1,opacity:a*.65});
+      addEl(svg,'line',{x1:cx,y1:1,x2:cx,y2:7,stroke:color,'stroke-width':.7,opacity:a*.5});
+      addEl(svg,'circle',{cx,cy,r:1.5,fill:color,opacity:a});
+      for(let d=0;d<maxHp-hp;d++){const x=d===0?9:23;
+        addEl(svg,'line',{x1:x,y1:1,x2:x+3,y2:7,stroke:'#ff4444','stroke-width':1.3,opacity:.9});
+        addEl(svg,'line',{x1:x+3,y1:1,x2:x,y2:7,stroke:'#ff4444','stroke-width':1.3,opacity:.9});}
+      return svg;
+    }
+  },
+  {
+    id:'xs', label:'Pequeña', quota:5, hp:1, canMove:false,
+    w:8, h:8,
+    draw(color,hp,maxHp){
+      const a=hp>0?.85:.18, svg=mkSVG(8,8), cx=4, cy=4;
+      addEl(svg,'line',{x1:cx-3,y1:cy,x2:cx+3,y2:cy,stroke:color,'stroke-width':.9,opacity:a});
+      addEl(svg,'line',{x1:cx,y1:cy-3,x2:cx,y2:cy+3,stroke:color,'stroke-width':.9,opacity:a});
+      addEl(svg,'circle',{cx,cy,r:1,fill:color,opacity:a});
+      return svg;
+    }
+  }
+];
+
+const TOTAL_SHIPS = SHIP_TYPES.reduce((s,t)=>s+t.quota,0); // 10
+
+/* ══════════════ GAME STATE ══════════════ */
+let phase='place', placingPlayer=1;
+// ships[player] = [{type, fx, fy, hp, id, wrap(DOM)}]
+let ships={1:[],2:[]};
+let picks={1:{},2:{}};
+let selectedType=SHIP_TYPES[0];
+let history=[];
+// remaining[player] = indices into ships[rival] not yet sunk
+let remaining={1:[],2:[]};
+let currentPlayer=1;
+let score={1:0,2:0};
+let toastTimer=null;
+
+const pTop=document.getElementById('panel-top');
+const pBot=document.getElementById('panel-bot');
+const phaseMsg=document.getElementById('phase-msg');
+const picker=document.getElementById('picker');
+const pickerBtns=document.getElementById('picker-btns');
+const toastEl=document.getElementById('toast');
+const toastErr=document.getElementById('toast-err');
+const toastMsg=document.getElementById('toast-msg');
+const turnBar=document.getElementById('turn-bar');
+const hv=document.getElementById('handoff-veil');
+const hvMsg=document.getElementById('hv-msg');
+const hvBtn=document.getElementById('hv-btn');
+const foOverlay=document.getElementById('final-overlay');
+
+function ch(p){return p===1?'var(--c1)':'var(--c2)';}
+function hex(p){return p===1?'#ff6b35':'#4ecdc4';}
+function panel(p){return p===1?pTop:pBot;}
+function rivalPanel(p){return p===1?pBot:pTop;}
+
+/* ── Pips ── */
+function buildPips(){
+  document.getElementById('pg1').innerHTML='';document.getElementById('pg2').innerHTML='';
+  for(let i=0;i<TOTAL_SHIPS;i++){
+    const a=document.createElement('div');a.className='pip';a.id='pip1-'+i;document.getElementById('pg1').appendChild(a);
+    const b=document.createElement('div');b.className='pip';b.id='pip2-'+i;document.getElementById('pg2').appendChild(b);}}
+function refreshPips(){
+  for(let i=0;i<TOTAL_SHIPS;i++){
+    const p1=document.getElementById('pip1-'+i);const p2=document.getElementById('pip2-'+i);
+    if(!p1||!p2)continue;
+    const s1=ships[1][i];p1.className='pip'+(s1&&s1.hp<=0?' sunk':remaining[1].includes(i)&&currentPlayer===1?' cur1':'');
+    const s2=ships[2][i];p2.className='pip'+(s2&&s2.hp<=0?' sunk':remaining[2].includes(i)&&currentPlayer===2?' cur2':'');}}
+function refreshScores(){
+  document.querySelector('#sb1 .sb-val').textContent=score[1];
+  document.querySelector('#sb2 .sb-val').textContent=score[2];
+  turnBar.className='';turnBar.id='turn-bar';
+  if(phase==='game')turnBar.classList.add('t'+currentPlayer);}
+
+/* ── Panel pixel helpers ── */
+function panelRect(p){return panel(p).getBoundingClientRect();}
+function fracToXY(p,fx,fy){const r=panelRect(p);return{x:fx*r.width,y:fy*r.height};}
+function xyToFrac(p,x,y){const r=panelRect(p);return{fx:x/r.width,fy:y/r.height};}
+function clickFrac(p,e){
+  const r=panel(p).getBoundingClientRect();
+  return{fx:Math.min(1,Math.max(0,(e.clientX-r.left)/r.width)),
+         fy:Math.min(1,Math.max(0,(e.clientY-r.top)/r.height))};}
+
+/* ══════════════ SYMMETRY ══════════════
+  Mirror axis = horizontal dividing line.
+  Shot fired at (fx, fy) in OWN panel →
+  mirror in RIVAL panel lands at (fx, 1-fy).
+*/
+function mirrorFy(fy){return 1-fy;}
+
+/* Pixel distance from shot (gfx,gfy in OWN panel)
+   to ship centre (sfx,sfy in RIVAL panel).
+   Convert both to pixels using rival panel dims. */
+function hitCheck(gfx,gfy,ship,rivalP){
+  const r=rivalPanel(rivalP).getBoundingClientRect();
+  const sx=gfx*r.width, sy=mirrorFy(gfy)*r.height;
+  const cx=ship.fx*r.width, cy=ship.fy*r.height;
+  let dx=sx-cx, dy=sy-cy;
+  // For rotated ships, rotate the delta into ship-local space
+  if(ship.angleDeg){
+    const rad=-ship.angleDeg*Math.PI/180;
+    const rdx=dx*Math.cos(rad)-dy*Math.sin(rad);
+    const rdy=dx*Math.sin(rad)+dy*Math.cos(rad);
+    dx=rdx; dy=rdy;
+  }
+  const hw=ship.type.w/2, hh=ship.type.h/2;
+  const inBox=(Math.abs(dx)<=hw && Math.abs(dy)<=hh);
+  const pxDist=Math.sqrt((sx-cx)**2+(sy-cy)**2);
+  const diag=Math.sqrt(r.width**2+r.height**2);
+  const errPct=(pxDist/diag)*100;
+  return{hit:inBox, errPct, pxDist, mirrorX:sx, mirrorY:sy};}
+
+/* ══════════════ SHIP DOM ══════════════ */
+function createShipEl(ship,playerColor){
+  const wrap=document.createElement('div');
+  wrap.className='mk no-transition';
+  wrap.dataset.shipId=ship.id;
+  const svg=ship.type.draw(playerColor,ship.hp,ship.type.hp);
+  wrap.appendChild(svg);
+  const ang=ship.angleDeg||0;
+  wrap.style.transform=`translate(-50%,-50%) rotate(${ang}deg)`;
+  return wrap;}
+
+function panelW(el){return el.getBoundingClientRect().width||el.offsetWidth||window.innerWidth;}
+function panelH(el){return el.getBoundingClientRect().height||el.offsetHeight||(window.innerHeight/2);}
+function positionShipEl(wrap,panel,fx,fy){
+  const w=panelW(panel),h=panelH(panel);
+  wrap.style.left=(fx*w)+'px';
+  wrap.style.top=(fy*h)+'px';}
+
+function setShipAngle(ship){
+  if(!ship.wrap)return;
+  const ang=ship.angleDeg||0;
+  ship.wrap.style.transform=`translate(-50%,-50%) rotate(${ang}deg)`;}
+
+function redrawShipSVG(ship,playerColor){
+  if(!ship.wrap)return;
+  ship.wrap.innerHTML='';
+  const drawColor=ship.hp<=0?'#1a3060':playerColor;
+  const svg=ship.type.draw(drawColor,ship.hp,ship.type.hp);
+  ship.wrap.appendChild(svg);
+  setShipAngle(ship);}
+
+/* ══════════════ PLACEMENT ══════════════ */
+function initPicks(player){
+  picks[player]={};SHIP_TYPES.forEach(t=>{picks[player][t.id]=t.quota;});
+  selectedType=SHIP_TYPES[0];}
+
+function buildPicker(player){
+  pickerBtns.innerHTML='';
+  SHIP_TYPES.forEach(tt=>{
+    const rem=picks[player][tt.id];
+    const btn=document.createElement('div');
+    btn.className='pBtn'+(tt===selectedType?' selected':'')+(rem<=0?' disabled':'');
+    btn.style.color=hex(player);btn.style.borderColor=rem>0?'rgba(255,255,255,.12)':'rgba(255,255,255,.04)';
+    const shapeWrap=document.createElement('div');shapeWrap.className='pBtn-shape';
+    const svg=tt.draw(hex(player),tt.hp,tt.hp);svg.style.maxWidth='40px';svg.style.maxHeight='22px';
+    shapeWrap.appendChild(svg);
+    const cnt=document.createElement('div');cnt.className='pBtn-count';
+    cnt.textContent=rem>0?`×${rem}`:'—';
+    cnt.style.color=rem>0?hex(player):'rgba(255,255,255,.2)';
+    btn.appendChild(shapeWrap);btn.appendChild(cnt);
+    if(rem>0){btn.addEventListener('click',()=>{
+      selectedType=tt;buildPicker(player);
+      const msg=document.getElementById('picker-msg');
+      msg.innerHTML=tt.id==='lg'
+        ?`<span style="color:${hex(player)};font-weight:300">J${player}</span><span style="color:var(--muted)"> — pulsa y arrastra para girar</span>`
+        :`<span style="color:${hex(player)};font-weight:300">J${player}</span><span style="color:var(--muted)"> — despliega</span>`;
+    });}
+    pickerBtns.appendChild(btn);});}
+
+function startPlacement(player){
+  placingPlayer=player;phase='place';ships[player]=[];initPicks(player);
+  panel(player).querySelectorAll('.mk').forEach(d=>d.remove());
+  panel(player).classList.remove('no-click');panel(player).classList.add('can-click');
+  rivalPanel(player).classList.add('no-click');rivalPanel(player).classList.remove('can-click');
+  picker.classList.remove('hide');buildPicker(player);
+  const msg=document.getElementById('picker-msg');
+  const labelColor=(gameMode==='online')?myColor():hex(player);
+  const labelName=(gameMode==='online')?myName:`J${player}`;
+  msg.innerHTML=`<span style="color:${labelColor};font-weight:300">${labelName}</span><span style="color:var(--muted)"> — despliega</span>`;
+  // Listen for picker selection to update hint
+  pickerBtns.onchange=null;
+  pickerBtns._player=player;
+  phaseMsg.innerHTML='';
+  document.getElementById('rand-btn').style.color=(gameMode==='online')?myColor():hex(player);
+  document.getElementById('rand-btn').onclick=(e)=>{e.stopPropagation();randomPlacement(player);};}
+
+function startTrainBattle(){
+  // Clear both panels
+  [1,2].forEach(p=>{ ships[p].forEach(s=>{ if(s.wrap)s.wrap.remove(); }); ships[p]=[]; });
+  [pTop,pBot].forEach(p=>p.querySelectorAll('.shot-mk,.impact-mk,.mk').forEach(d=>d.remove()));
+
+  // Enemy ships randomly in pTop (player 1 slot)
+  const p1=panel(1);
+  requestAnimationFrame(()=>{
+    const pw=panelW(p1), ph=panelH(p1);
+    SHIP_TYPES.forEach(tt=>{
+      for(let q=0;q<tt.quota;q++){
+        const hw=tt.w/2/pw+.02, hh=tt.h/2/ph+.02;
+        const fx=hw+Math.random()*(1-2*hw);
+        const fy=hh+Math.random()*(1-2*hh);
+        const angleDeg=tt.id==='lg'?snapAngle(Math.random()*360):0;
+        const ship={type:tt,fx,fy,hp:tt.hp,id:ships[1].length,wrap:null,angleDeg};
+        ships[1].push(ship);
+        const wrap=createShipEl(ship,hex(1));
+        p1.appendChild(wrap); positionShipEl(wrap,p1,fx,fy);
+        ship.wrap=wrap;
+      }
+    });
+
+    // Human is player 2 (pBot), enemy is player 1 (pTop), enemy never shoots
+    phase='game'; history=[]; score={1:0,2:0};
+    remaining={ 1:[], 2:ships[1].map((_,i)=>i) };
+    currentPlayer=2;
+    buildPips(); refreshScores();
+    picker.classList.add('hide');
+
+    // Show enemy ships in pTop, hide pBot ships (none)
+    ships[1].forEach(s=>{ if(s.wrap) s.wrap.style.display=''; });
+
+    // Enable pBot for firing
+    pTop.classList.add('no-click'); pTop.classList.remove('can-click');
+    pBot.classList.remove('no-click'); pBot.classList.add('can-click');
+
+    firingLocked=true;
+    setTimeout(()=>{ firingLocked=false; }, 350);
+  });
 }
-function openCfg()  { document.getElementById('cfgOverlay').classList.add('open'); }
-function closeCfg() { document.getElementById('cfgOverlay').classList.remove('open'); }
-function applyConfig() { saveCfg(); initSupabase(); closeCfg(); }
 
-document.addEventListener('keydown', e => {
-  if (e.ctrlKey && e.shiftKey && e.key === 'K') { e.preventDefault(); openCfg(); }
+function randomPlacement(player){
+  // Clear existing ships AND marks from the panel
+  ships[player].forEach(s=>{ if(s.wrap) s.wrap.remove(); });
+  panel(player).querySelectorAll('.shot-mk,.impact-mk').forEach(d=>d.remove());
+  ships[player]=[];initPicks(player);
+  const p=panel(player);
+  requestAnimationFrame(()=>{
+    const pw=panelW(p), ph=panelH(p);
+    SHIP_TYPES.forEach(tt=>{
+      for(let q=0;q<tt.quota;q++){
+        const hw=tt.w/2/pw+.02,hh=tt.h/2/ph+.02;
+        const fx=hw+Math.random()*(1-2*hw);
+        const fy=hh+Math.random()*(1-2*hh);
+        const angleDeg=tt.id==='lg'?snapAngle(Math.random()*360):0;
+        const ship={type:tt,fx,fy,hp:tt.hp,id:ships[player].length,wrap:null,angleDeg};
+        ships[player].push(ship);
+        picks[player][tt.id]--;
+        const shipColor2=(gameMode==='online')?myColor():hex(player);
+        const wrap=createShipEl(ship,shipColor2);
+        p.appendChild(wrap);
+        positionShipEl(wrap,p,fx,fy);
+        ship.wrap=wrap;
+      }
+    });
+    buildPicker(player);
+    setTimeout(()=>placementDone(player),300);
+  });
+}
+
+/* ══ PLACEMENT EVENT HANDLERS ══ */
+let lgDrag=null;
+
+function snapAngle(deg){ return Math.round(deg/45)*45; }
+
+function getFrac(clientX,clientY,panelEl){
+  const r=panelEl.getBoundingClientRect();
+  return {
+    fx:Math.min(.95,Math.max(.05,(clientX-r.left)/r.width)),
+    fy:Math.min(.95,Math.max(.05,(clientY-r.top)/r.height))
+  };
+}
+
+function doPlace(player,fx,fy,angleDeg){
+  if(picks[player][selectedType.id]<=0){
+    const avail=SHIP_TYPES.find(t=>picks[player][t.id]>0);
+    if(!avail)return null; selectedType=avail; buildPicker(player);
+  }
+  const tt=selectedType;
+  const ship={type:tt,fx,fy,hp:tt.hp,id:ships[player].length,wrap:null,angleDeg:angleDeg||0};
+  ships[player].push(ship);
+  picks[player][tt.id]--;
+  const shipColor=(gameMode==='online')?myColor():hex(player);
+  const wrap=createShipEl(ship,shipColor);
+  panel(player).appendChild(wrap);
+  positionShipEl(wrap,panel(player),fx,fy);
+  ship.wrap=wrap;
+  if(picks[player][tt.id]===0){
+    const avail=SHIP_TYPES.find(t=>picks[player][t.id]>0);
+    if(avail) selectedType=avail;
+  }
+  buildPicker(player);
+  const placed=ships[player].length, rem=TOTAL_SHIPS-placed;
+  phaseMsg.innerHTML=rem>0
+    ?`<b style="color:${ch(player)}">J${player}</b> — ${rem} nave${rem!==1?'s':''} restante${rem!==1?'s':''}`
+    :`<b style="color:${ch(player)}">J${player}</b> — listo`;
+  if(SHIP_TYPES.every(t=>picks[player][t.id]===0)) setTimeout(()=>placementDone(player),200);
+  return ship;
+}
+
+[pTop,pBot].forEach((pan,i)=>{
+  const player=i+1;
+
+  pan.addEventListener('touchstart',e=>{
+    if(phase!=='place'||placingPlayer!==player)return;
+    e.preventDefault();
+    const t=e.touches[0];
+    const {fx,fy}=getFrac(t.clientX,t.clientY,pan);
+    if(selectedType.id==='lg'){
+      const ship=doPlace(player,fx,fy,0);
+      if(ship) lgDrag={ship,player,x0:t.clientX,y0:t.clientY};
+    } else {
+      pan._tplace={fx,fy};
+    }
+  },{passive:false});
+
+  pan.addEventListener('touchmove',e=>{
+    if(phase!=='place'||placingPlayer!==player)return;
+    e.preventDefault();
+    if(lgDrag&&lgDrag.player===player){
+      const t=e.touches[0];
+      const dx=t.clientX-lgDrag.x0, dy=t.clientY-lgDrag.y0;
+      if(Math.abs(dx)>6||Math.abs(dy)>6){
+        lgDrag.ship.angleDeg=snapAngle(Math.atan2(dy,dx)*180/Math.PI);
+        setShipAngle(lgDrag.ship);
+      }
+    } else {
+      pan._tplace=null; // moved — cancel tap
+    }
+  },{passive:false});
+
+  pan.addEventListener('touchend',e=>{
+    if(phase!=='place'||placingPlayer!==player)return;
+    e.preventDefault();
+    if(lgDrag&&lgDrag.player===player){
+      lgDrag=null;
+    } else if(pan._tplace){
+      const {fx,fy}=pan._tplace;
+      pan._tplace=null;
+      doPlace(player,fx,fy,0);
+    }
+  },{passive:false});
+
+  pan.addEventListener('mousedown',e=>{
+    if(phase!=='place'||placingPlayer!==player||selectedType.id!=='lg')return;
+    const {fx,fy}=getFrac(e.clientX,e.clientY,pan);
+    const ship=doPlace(player,fx,fy,0);
+    if(!ship)return;
+    lgDrag={ship,player,x0:e.clientX,y0:e.clientY};
+    const onMove=ev=>{
+      const dx=ev.clientX-lgDrag.x0, dy=ev.clientY-lgDrag.y0;
+      if(Math.abs(dx)>6||Math.abs(dy)>6){
+        lgDrag.ship.angleDeg=snapAngle(Math.atan2(dy,dx)*180/Math.PI);
+        setShipAngle(lgDrag.ship);
+      }
+    };
+    const onUp=()=>{ lgDrag=null; document.removeEventListener('mousemove',onMove); document.removeEventListener('mouseup',onUp); };
+    document.addEventListener('mousemove',onMove);
+    document.addEventListener('mouseup',onUp);
+  });
+
+  pan.addEventListener('click',e=>{
+    if(phase!=='place'||placingPlayer!==player||selectedType.id==='lg')return;
+    const {fx,fy}=getFrac(e.clientX,e.clientY,pan);
+    doPlace(player,fx,fy,0);
+  });
 });
 
-function initSupabase() {
-  if (!SUPA_URL.includes('supabase') || !SUPA_KEY.startsWith('eyJ')) {
-    if (SUPA_URL || SUPA_KEY) setDb('err', 'Error de configuración');
-    return;
-  }
-  try { sb = supabase.createClient(SUPA_URL, SUPA_KEY); checkSupabase(); }
-  catch(e) { setDb('err', 'Error al inicializar'); }
+function showPlayerLabel(player, callback){
+  const targetPanel=panel(player);
+  targetPanel.appendChild(hv);
+  const name=player===1?(window._p1name||'Jugador 1'):(window._p2name||'Jugador 2');
+  hvMsg.textContent=name;
+  hvMsg.style.color=hex(player);
+  hv.classList.remove('hide');hv.classList.add('show');
+  setTimeout(()=>{
+    hv.classList.remove('show');hv.classList.add('hide');
+    setTimeout(callback,250);
+  },1000);
 }
-async function checkSupabase() {
-  try {
-    const { error } = await sb.from('gastos_sessions').select('id').limit(1);
-    if (error) throw error;
-    sbReady = true; setDb('ok', 'BD conectada');
-    await loadHistoryFromDB();
-    // Auto-load today's data from Supabase
-    const fecha = document.getElementById('sessionDate').value;
-    if (fecha) {
-      const { data } = await sb.from('gastos_sessions')
-        .select('*').eq('session_code', sessionId).eq('session_date', fecha).limit(1);
-      if (data && data.length) {
-        const s = data[0];
-        mesas = (s.mesas||[]).map(m => ({...m, id: m.id||uid(), horaEntrada: m.horaEntrada||'', horaSalida: m.horaSalida||''}));
-        jugadores = (s.jugadores||[]).map(j => ({...j, id: j.id||uid(),
-          mesas: (j.mesas||[]).map(jm => ({...jm, mid: jm.mid||mesas[0]?.id||'', horaEntrada: jm.horaEntrada||'', horaSalida: jm.horaSalida||''}))}));
-        renderAll(); saveLocal();
-      }
+
+function placementDone(player){
+  if(gameMode==='online'){
+    stopPlacementTimer();
+    // Host usa slot 1 (pTop), joiner siempre usa slot 2 (pBot)
+    const mySlot=isHost?1:2;
+    panel(mySlot).classList.add('no-click');panel(mySlot).classList.remove('can-click');
+    picker.classList.add('hide');
+    const shipData=ships[mySlot].map(s=>({typeId:s.type.id,fx:s.fx,fy:s.fy,hp:s.type.hp,id:s.id,angleDeg:s.angleDeg||0}));
+    combatants[myId]=combatants[myId]||{id:myId,name:myName,team:myTeam,ships:[],_shipObjs:[],inGame:false,score:0};
+    combatants[myId].ships=shipData;
+    combatants[myId].inGame=true;
+    reconstructShips(myId,shipData);
+    if(isHost){
+      hostReceive({type:'host_placed',ships:shipData,_from:myId,_id:'local_placed'});
+    } else {
+      sendMsg({type:'ships_ready',ships:shipData});
     }
-  } catch(e) { sbReady = false; setDb('err', 'Error BD'); }
-}
-function setDb(state, msg) {
-  document.getElementById('dbDot').className = 'db-dot ' + state;
-  document.getElementById('dbLabel').textContent = msg;
-}
-
-// ══════════════════════════════════════════════
-//  GUN SYNC
-// ══════════════════════════════════════════════
-let isLocal = true, gun = null, gunNode = null, sessionId = '', lastLocal = 0;
-
-function initSession() {
-  applySessionCode('REMPXL');
-}
-
-function applySessionCode(code) {
-  sessionId = code.toUpperCase().replace(/[^A-Z0-9]/g,'');
-  localStorage.setItem('ps-session-code', sessionId);
-  location.hash = sessionId;
-  document.getElementById('sessionCodeInput').value = sessionId;
-  document.getElementById('linkPartidas').href = 'partidas.html#' + sessionId;
-  document.getElementById('connLabel').textContent = isLocal ? 'Solo local' : 'En directo · ' + sessionId;
-  // Reconnect Gun with new code if live
-  if (!isLocal) { gun = null; gunNode = null; setMode('live'); }
-}
-
-function joinSession() {
-  const code = document.getElementById('sessionCodeInput').value.trim();
-  if (!code) return;
-  applySessionCode(code);
-  if (isLocal) setMode('live');
-  // Load fresh data from Gun
-  if (gunNode) gunNode.once(d => {
-    if (d && d.state) try {
-      const s = JSON.parse(d.state);
-      mesas = s.mesas || []; jugadores = s.jugadores || [];
-      document.getElementById('sessionDate').value = s.fecha || '';
-      renderAll();
-    } catch(e) {}
-  });
-}
-function setMode(mode) {
-  isLocal = mode === 'local';
-  document.getElementById('btnLocal').className = 'mode-btn' + (isLocal ? ' active-local' : '');
-  document.getElementById('btnLive').className  = 'mode-btn' + (!isLocal ? ' active-live' : '');
-  const dot = document.getElementById('liveDot');
-  if (isLocal) {
-    dot.className = 'live-dot off';
-    document.getElementById('connLabel').textContent = 'Solo local';
-    gun = null; gunNode = null;
+    showToast('','','⏳ Esperando rival…',8000);
+    showInviteButton();
+  } else if(gameMode==='train'){
+    startTrainBattle();
   } else {
-    dot.className = 'live-dot on';
-    document.getElementById('connLabel').textContent = 'En directo · ' + sessionId;
-    gun = Gun(['https://gun-manhattan.herokuapp.com/gun']);
-    gunNode = gun.get('ps-gastos-' + sessionId);
-    gunNode.on(d => {
-      if (Date.now() - lastLocal < 2000) return;
-      if (['INPUT','SELECT'].includes(document.activeElement.tagName)) return;
-      if (d && d.state) try {
-        const s = JSON.parse(d.state);
-        mesas = s.mesas || []; jugadores = s.jugadores || [];
-        document.getElementById('sessionDate').value = s.fecha || '';
-        renderAll();
-      } catch(e) {}
-    });
-  }
-}
-function pushGun() {
-  if (isLocal || !gunNode) return;
-  lastLocal = Date.now();
-  gunNode.put({ state: JSON.stringify({ mesas, jugadores, fecha: document.getElementById('sessionDate').value }) });
-}
-function copyLink() {
-  navigator.clipboard.writeText(location.href);
-  const btn = document.getElementById('btnCopy');
-  btn.textContent = '✓'; btn.classList.add('copied');
-  setTimeout(() => { btn.textContent = '🔗'; btn.classList.remove('copied'); }, 2000);
-}
-
-// ══════════════════════════════════════════════
-//  GLOBAL TEMPLATES (shared with partidas.html)
-// ══════════════════════════════════════════════
-let globalPlayers = [];
-let globalTables  = [];
-
-function loadGlobals() {
-  globalPlayers = JSON.parse(localStorage.getItem('ps-global-players') || '[]');
-  globalTables  = JSON.parse(localStorage.getItem('ps-global-tables')  || '[]');
-}
-function saveGlobals() {
-  localStorage.setItem('ps-global-players', JSON.stringify(globalPlayers));
-  localStorage.setItem('ps-global-tables',  JSON.stringify(globalTables));
-  updateDataLists();
-}
-
-function updateDataLists() {
-  // datalist for player name inputs
-  document.getElementById('dlPlayers').innerHTML =
-    globalPlayers.map(p => `<option value="${esc(p.name)}">`).join('');
-  // datalist for mesa name inputs
-  document.getElementById('dlTables').innerHTML =
-    globalTables.map(t => `<option value="${esc(t.name)}">`).join('');
-  // Show/hide "from template" buttons
-  document.getElementById('btnFromTemplate').style.display = globalTables.length ? '' : 'none';
-  document.getElementById('btnPlayerFromTemplate').style.display = globalPlayers.length ? '' : 'none';
-}
-
-// — Player template —
-function addGlobalPlayer() {
-  const input = document.getElementById('newPlayerName');
-  const name = input.value.trim();
-  if (!name || globalPlayers.some(p => p.name === name)) return;
-  globalPlayers.push({ name });
-  saveGlobals();
-  renderPlayerTemplate();
-  input.value = '';
-}
-function removeGlobalPlayer(name) {
-  globalPlayers = globalPlayers.filter(p => p.name !== name);
-  saveGlobals();
-  renderPlayerTemplate();
-}
-function renderPlayerTemplate() {
-  const c = document.getElementById('playerTemplateList');
-  c.innerHTML = globalPlayers.map(p => `
-    <span class="template-chip">${esc(p.name)}
-      <button onclick="removeGlobalPlayer('${esc(p.name)}')" title="Eliminar">✕</button>
-    </span>`).join('') || '<span style="font-family:\'JetBrains Mono\',monospace;font-size:.72rem;color:var(--silver-dark)">Sin jugadores en plantilla</span>';
-}
-
-// — Table template —
-function addGlobalTable() {
-  const name  = document.getElementById('newTableName').value.trim();
-  const price = +document.getElementById('newTablePrice').value;
-  if (!name) return;
-  if (!globalTables.some(t => t.name === name)) globalTables.push({ name, price });
-  saveGlobals();
-  renderTableTemplate();
-  document.getElementById('newTableName').value = '';
-}
-function removeGlobalTable(name) {
-  globalTables = globalTables.filter(t => t.name !== name);
-  saveGlobals();
-  renderTableTemplate();
-}
-function renderTableTemplate() {
-  const c = document.getElementById('tableTemplateList');
-  c.innerHTML = globalTables.map(t => `
-    <span class="template-chip">${esc(t.name)} <span style="color:var(--silver-dark)">${t.price}€/h</span>
-      <button onclick="removeGlobalTable('${esc(t.name)}')" title="Eliminar">✕</button>
-    </span>`).join('') || '<span style="font-family:\'JetBrains Mono\',monospace;font-size:.72rem;color:var(--silver-dark)">Sin mesas en plantilla</span>';
-  document.getElementById('btnFromTemplate').style.display = globalTables.length ? '' : 'none';
-}
-
-// — Add from template —
-function addMesaFromTemplate() {
-  if (!globalTables.length) return;
-  globalTables.forEach(t => {
-    if (!mesas.some(m => m.nombre === t.name)) {
-      mesas.push({ id: uid(), nombre: t.name, precio: t.price, minutos: 0, horaEntrada: '', horaSalida: '' });
+    panel(player).classList.add('no-click');panel(player).classList.remove('can-click');
+    picker.classList.add('hide');
+    if(player===1){
+      showPlayerLabel(2,()=>startPlacement(2));
+    } else {
+      startGame();
     }
-  });
-  renderMesas(); updateMesaSelectsInCards(); recalculate(); saveLocal(); pushGun();
-}
-function addJugadorFromTemplate() {
-  if (!globalPlayers.length || jugadores.length >= 10) return;
-  const slots = 10 - jugadores.length;
-  globalPlayers.slice(0, slots).forEach(p => {
-    if (!jugadores.some(j => j.nombre === p.name)) {
-      jugadores.push({ id: uid(), nombre: p.name, mesas: [] });
-    }
-  });
-  renderJugadores(); recalculate();
-  document.getElementById('addPlayerBtn').style.display = jugadores.length >= 10 ? 'none' : '';
-  document.getElementById('btnPlayerFromTemplate').style.display = jugadores.length >= 10 ? 'none' : '';
-}
-
-// ══════════════════════════════════════════════
-//  SESSION DATA
-// ══════════════════════════════════════════════
-let mesas = [], jugadores = [], history = [];
-
-function minOpts(sel = 0) {
-  let o = '';
-  for (let m = 0; m <= 300; m += 15)
-    o += `<option value="${m}"${m === sel ? ' selected' : ''}>${m} min</option>`;
-  return o;
-}
-function priceOpts(sel = 10) {
-  let o = '';
-  for (let p = 0; p <= 100; p++)
-    o += `<option value="${p}"${p === sel ? ' selected' : ''}>${p} €/h</option>`;
-  return o;
-}
-
-// ── MESAS ──
-function calcMins(entrada, salida) {
-  if (!entrada || !salida) return 0;
-  const [eh, em] = entrada.split(':').map(Number);
-  const [sh, sm] = salida.split(':').map(Number);
-  let mins = (sh * 60 + sm) - (eh * 60 + em);
-  return mins < 0 ? mins + 1440 : mins; // crosses midnight
-}
-function minsLabel(entrada, salida, fallback) {
-  const m = calcMins(entrada, salida);
-  return m > 0 ? `${m} min` : (fallback > 0 ? `${fallback} min` : '0 min');
-}
-
-function addMesa() {
-  mesas.push({ id: uid(), nombre: '', precio: 10, minutos: 0, horaEntrada: '', horaSalida: '' });
-  renderMesas(); updateMesaSelectsInCards(); recalculate(); saveLocal(); pushGun();
-}
-function removeMesa(id) {
-  mesas = mesas.filter(m => m.id !== id);
-  jugadores.forEach(j => { j.mesas = j.mesas.filter(jm => mesas.some(m => m.id === jm.mid)); });
-  renderMesas(); renderJugadores(); recalculate(); saveLocal(); pushGun();
-}
-function getMesa(id) { return mesas.find(m => m.id === id); }
-
-// KEY FIX: mesa name input uses blur for re-render, oninput only updates model + option texts
-function onMesaName(id, value) {
-  const m = getMesa(id); if (!m) return;
-  m.nombre = value;
-  // Update just the <option> texts in player cards without rebuilding
-  document.querySelectorAll(`.pmrow select option[value="${id}"]`).forEach(opt => {
-    opt.textContent = value || '(sin nombre)';
-  });
-  saveLocal(); pushGun();
-}
-
-function renderMesas() {
-  const c = document.getElementById('tablesList');
-  if (!mesas.length) { c.innerHTML = '<div class="empty-state">Sin mesas. Añade una o usa la plantilla.</div>'; return; }
-  c.innerHTML = mesas.map(m => `
-    <div class="mesa-row">
-      <div class="mesa-top">
-        <div>
-          <label>Nombre de mesa</label>
-          ${globalTables.length ? `<select style="margin-bottom:.3rem;font-size:.78rem;padding:.3rem .5rem;color:var(--silver-dim);width:100%"
-            onchange="if(this.value){const t=globalTables.find(x=>x.name===this.value);if(t){getMesa('${m.id}').nombre=t.name;getMesa('${m.id}').precio=t.price;renderMesas();updateMesaSelectsInCards();recalculate();saveLocal();pushGun()}}">
-            <option value="">— Seleccionar —</option>
-            ${globalTables.map(t=>`<option value="${esc(t.name)}"${m.nombre===t.name?'selected':''}>${esc(t.name)} (${t.price}€/h)</option>`).join('')}
-          </select>` : ''}
-          <input type="text" id="mn_${m.id}" value="${esc(m.nombre)}" placeholder="Mesa" list="dlTables"
-            oninput="onMesaName('${m.id}',this.value)" onchange="updateMesaSelectsInCards();recalculate()">
-        </div>
-        <div>
-          <label>€ / hora</label>
-          <select onchange="getMesa('${m.id}').precio=+this.value;recalculate();saveLocal();pushGun()">
-            ${priceOpts(m.precio)}
-          </select>
-        </div>
-        <div style="align-self:flex-end">
-          <button class="btn-remove" onclick="removeMesa('${m.id}')">✕</button>
-        </div>
-      </div>
-      <div class="mesa-times">
-        <div>
-          <label>🕐 Hora entrada</label>
-          <input type="time" value="${m.horaEntrada||''}"
-            onchange="getMesa('${m.id}').horaEntrada=this.value;recalculate();saveLocal();pushGun()">
-        </div>
-        <div>
-          <label>🕐 Hora salida</label>
-          <input type="time" value="${m.horaSalida||''}"
-            onchange="getMesa('${m.id}').horaSalida=this.value;recalculate();saveLocal();pushGun()">
-        </div>
-      </div>
-    </div>`).join('');
-}
-
-// Copy mesa times to player when assigned (always overwrites — player can edit after)
-function assignMesaToJugador(jid, mi, mesaId) {
-  const jm = getJug(jid).mesas[mi];
-  const m  = getMesa(mesaId);
-  jm.mid = mesaId;
-  if (m) {
-    jm.horaEntrada = m.horaEntrada || '';
-    jm.horaSalida  = m.horaSalida  || '';
   }
 }
 
-// (kept for addJugMesa copy on initial add)
-function copyMesaTimes(mesaId) {}
+/* ══════════════ GAME ══════════════ */
+let firingLocked=false; // guard against stray clicks after handoff
 
-function updateMesaSelectsInCards() {
-  document.querySelectorAll('.pmrow select:first-child').forEach(sel => {
-    const currentVal = sel.value;
-    sel.innerHTML = mesas.map(m =>
-      `<option value="${m.id}"${m.id === currentVal ? ' selected' : ''}>${esc(m.nombre || '(sin nombre)')}</option>`
-    ).join('');
-  });
-}
-
-// ── JUGADORES ──
-function addJugador() {
-  if (jugadores.length >= 10) return;
-  jugadores.push({ id: uid(), nombre: '', mesas: [] });
-  renderJugadores(); recalculate();
-  document.getElementById('addPlayerBtn').style.display = jugadores.length >= 10 ? 'none' : '';
-  document.getElementById('btnPlayerFromTemplate').style.display = jugadores.length >= 10 ? 'none' : '';
-}
-function removeJugador(id) {
-  jugadores = jugadores.filter(j => j.id !== id);
-  renderJugadores(); recalculate(); saveLocal(); pushGun();
-  document.getElementById('addPlayerBtn').style.display = jugadores.length >= 10 ? 'none' : '';
-  document.getElementById('btnPlayerFromTemplate').style.display = jugadores.length >= 10 ? 'none' : '';
-}
-function addJugMesa(jid) {
-  const firstMesaId = mesas[0]?.id || '';
-  const m = getMesa(firstMesaId);
-  getJug(jid).mesas.push({
-    mid: firstMesaId, minutos: 0,
-    horaEntrada: m?.horaEntrada || '',
-    horaSalida:  m?.horaSalida  || ''
-  });
-  renderJugadores(); recalculate(); saveLocal();
-}
-function removeJugMesa(jid, idx) {
-  getJug(jid).mesas.splice(idx, 1);
-  renderJugadores(); recalculate(); saveLocal();
-}
-function getJug(id) { return jugadores.find(j => j.id === id); }
-
-function renderJugadores() {
-  const c = document.getElementById('playerCards');
-  if (!jugadores.length) { c.innerHTML = '<div class="empty-state">Sin jugadores. Añade uno o usa la plantilla.</div>'; return; }
-  c.innerHTML = jugadores.map((j, i) => `
-    <div class="player-card">
-      <div class="player-header">
-        <span class="pnum">${i + 1}</span>
-        <div style="flex:1">
-          ${globalPlayers.length ? `<select style="width:100%;font-size:.88rem;padding:.4rem .6rem"
-            onchange="getJug('${j.id}').nombre=this.value;recalculate();saveLocal();pushGun()">
-            <option value="">— Seleccionar jugador —</option>
-            ${globalPlayers.map(p=>`<option value="${esc(p.name)}"${j.nombre===p.name?'selected':''}>${esc(p.name)}</option>`).join('')}
-          </select>` : `<input type="text" value="${esc(j.nombre)}" placeholder="Nombre jugador"
-            oninput="getJug('${j.id}').nombre=this.value;recalculate();saveLocal();pushGun()">`}
-        </div>
-        <span class="player-total${j._total ? ' has-value' : ''}" id="ptot_${j.id}">${j._total ? j._total + '€' : '—'}</span>
-        <button class="btn-remove" onclick="removeJugador('${j.id}')">✕</button>
-      </div>
-      <div class="pmrows">
-        ${j.mesas.map((jm, mi) => `
-          <div class="pmrow">
-            <div class="pmrow-top">
-              <select onchange="assignMesaToJugador('${j.id}',${mi},this.value);renderJugadores();recalculate();saveLocal();pushGun()">
-                ${mesas.map(m => `<option value="${m.id}"${m.id === jm.mid ? ' selected' : ''}>${esc(m.nombre || '(sin nombre)')}</option>`).join('')}
-              </select>
-              <button class="btn-remove-row" onclick="removeJugMesa('${j.id}',${mi})">✕</button>
-            </div>
-            <div class="pmrow-times">
-              <div>
-                <label style="font-size:.58rem">Entrada</label>
-                <input type="time" value="${jm.horaEntrada||''}"
-                  onchange="getJug('${j.id}').mesas[${mi}].horaEntrada=this.value;recalculate();saveLocal();pushGun()">
-              </div>
-              <div>
-                <label style="font-size:.58rem">Salida</label>
-                <input type="time" value="${jm.horaSalida||''}"
-                  onchange="getJug('${j.id}').mesas[${mi}].horaSalida=this.value;recalculate();saveLocal();pushGun()">
-              </div>
-            </div>
-          </div>`).join('')}
-      </div>
-      ${mesas.length ? `<button class="btn-add-sm" onclick="addJugMesa('${j.id}')">+ Mesa</button>` : ''}
-    </div>`).join('');
+function startGame(){
+  phase='game';history=[];score={1:0,2:0};
+  [1,2].forEach(p=>{panel(p).querySelectorAll('.shot-mk,.impact-mk').forEach(d=>d.remove());});
+  [1,2].forEach(p=>ships[p].forEach(s=>{ if(s.wrap) s.wrap.style.display='none'; }));
+  remaining={
+    1:ships[2].map((_,i)=>i).filter(i=>ships[2][i].hp>0),
+    2:ships[1].map((_,i)=>i).filter(i=>ships[1][i].hp>0)};
+  buildPips();refreshScores();
+  currentPlayer=Math.random()<.5?1:2;
+  picker.classList.add('hide');
+  firingLocked=true;
+  if(gameMode==='local') activateEditablePtags();
+  renderGamePanels();
+  showToast(`J${currentPlayer}`,null,'🎲 Primer turno aleatorio',1800);
+  setTimeout(()=>{ firingLocked=false; },350);
+  activateSmallFlashes(1);
+  activateSmallFlashes(2);
 }
 
-// ── CÁLCULO ──
-function recalculate() {
-  const mesaCost = {};
-  mesas.forEach(m => {
-    const mins = calcMins(m.horaEntrada, m.horaSalida) || m.minutos;
-    mesaCost[m.id] = { cost: (m.precio * mins) / 60, mins };
-  });
-  const mesaTotalMin = {};
-  jugadores.forEach(j => j.mesas.forEach(jm => {
-    const mins = calcMins(jm.horaEntrada, jm.horaSalida) || jm.minutos;
-    mesaTotalMin[jm.mid] = (mesaTotalMin[jm.mid] || 0) + mins;
-  }));
-  const byName = {};
-  jugadores.forEach(j => {
-    const name = j.nombre.trim() || '?';
-    if (!byName[name]) byName[name] = { total: 0, items: [] };
-    j.mesas.forEach(jm => {
-      const m = getMesa(jm.mid); if (!m) return;
-      const jMins = calcMins(jm.horaEntrada, jm.horaSalida) || jm.minutos;
-      if (!jMins) return;
-      const allMin = mesaTotalMin[jm.mid] || 0; if (!allMin) return;
-      const share = (jMins / allMin) * (mesaCost[jm.mid]?.cost || 0);
-      byName[name].total += share;
-      const timeStr = jm.horaEntrada && jm.horaSalida ? ` (${jm.horaEntrada}–${jm.horaSalida})` : ` (${jMins}min)`;
-      byName[name].items.push(`${m.nombre || '?'}${timeStr}: ${share.toFixed(2)}€`);
-    });
-    j._total = byName[name].total > 0 ? byName[name].total.toFixed(2) : '';
-  });
-  const totalImporte = Object.values(mesaCost).reduce((a, v) => a + v.cost, 0);
-  const totalPagado  = Object.values(byName).reduce((a, p) => a + p.total, 0);
-  const diff = totalImporte - totalPagado;
-  document.getElementById('totMesas').textContent     = mesas.length;
-  document.getElementById('totImporte').textContent   = totalImporte.toFixed(2) + '€';
-  document.getElementById('totJugadores').textContent = Object.keys(byName).filter(k => byName[k].total > 0).length;
-  const dEl = document.getElementById('totDiff');
-  dEl.textContent = (diff >= 0 ? '+' : '') + diff.toFixed(2) + '€';
-  dEl.className = 'total-value ' + (Math.abs(diff) < 0.01 ? 'ok' : 'warn');
-  const sg = document.getElementById('summaryGrid');
-  const entries = Object.entries(byName).filter(([, p]) => p.total > 0);
-  sg.innerHTML = entries.length
-    ? entries.sort((a,b) => b[1].total - a[1].total).map(([name, p]) => `
-        <div class="summary-player">
-          <div class="summary-name">${esc(name)}</div>
-          <div class="summary-amount">${p.total.toFixed(2)}€</div>
-          <div class="summary-detail">${p.items.join('\n')}</div>
-        </div>`).join('')
-    : '<div class="summary-empty">Añade jugadores y mesas para ver el reparto.</div>';
-  jugadores.forEach(j => {
-    const el = document.getElementById('ptot_' + j.id);
-    if (el) { el.textContent = j._total ? j._total + '€' : '—'; el.className = 'player-total' + (j._total ? ' has-value' : ''); }
-  });
+/* render: show both panels from current player's POV
+   OWN panel  → hide own ships, show only shot marks
+   RIVAL panel → show rival ships + impact marks (no shot marks)
+*/
+function renderGamePanels(){
+  const cp=currentPlayer, riv=cp===1?2:1;
+  const ownP=panel(cp), rivP=rivalPanel(cp);
+
+  // Remove all transient marks from both panels
+  ownP.querySelectorAll('.shot-mk,.impact-mk').forEach(d=>d.remove());
+  rivP.querySelectorAll('.shot-mk,.impact-mk').forEach(d=>d.remove());
+
+  // Hide ALL ships first, then selectively show rival ships in rival panel
+  ships[1].forEach(s=>{ if(s.wrap) s.wrap.style.display='none'; });
+  ships[2].forEach(s=>{ if(s.wrap) s.wrap.style.display='none'; });
+
+  // ── OWN PANEL: no ships, show shot history + received impacts ──
+  history.filter(h=>h.player===cp).forEach(h=>{
+    const r=ownP.getBoundingClientRect();
+    const mk=document.createElement('div');mk.className='mk shot-mk';
+    mk.style.left=(h.gfx*r.width)+'px';mk.style.top=(h.gfy*r.height)+'px';
+    mk.appendChild(drawShotSVG(hex(cp),h.hit));ownP.appendChild(mk);});
+  history.filter(h=>h.player===riv).forEach(h=>{
+    const r=ownP.getBoundingClientRect();
+    const mx=h.gfx*r.width, my=mirrorFy(h.gfy)*r.height;
+    const mk=document.createElement('div');mk.className='mk impact-mk';
+    mk.style.left=mx+'px';mk.style.top=my+'px';
+    mk.appendChild(drawImpactSVG(hex(riv),h.hit));ownP.appendChild(mk);});
+
+  // ── RIVAL PANEL: show rival ships + cp's impact marks ──
+  ships[riv].forEach(s=>{ if(s.wrap) s.wrap.style.display=''; });
+  history.filter(h=>h.player===cp).forEach(h=>{
+    const mk=document.createElement('div');mk.className='mk impact-mk';
+    mk.style.left=h.mirrorX+'px';mk.style.top=h.mirrorY+'px';
+    mk.appendChild(drawImpactSVG(hex(cp),h.hit));rivP.appendChild(mk);});
+
+  // Enable own panel for shooting, disable rival panel
+  ownP.classList.remove('no-click');ownP.classList.add('can-click');
+  rivP.classList.add('no-click');rivP.classList.remove('can-click');
+
+  const nextIdx=remaining[cp][0];
+  const nextShip=nextIdx!==undefined?ships[riv][nextIdx]:null;
+  phaseMsg.innerHTML=nextShip
+    ?`<b style="color:${ch(cp)}">J${cp}</b> — apunta a <b>${nextShip.type.label}</b> nº${nextIdx+1} · HP ${nextShip.hp}/${nextShip.type.hp}`
+    :`<b style="color:${ch(cp)}">J${cp}</b>`;
+  refreshPips();
 }
 
-function renderAll() { renderMesas(); renderJugadores(); recalculate(); }
+/* click to fire */
+/* ══ AIM CURSOR + FIRE SYSTEM ══ */
+const aimCursor=document.getElementById('aim-cursor');
+// Build cursor SVG
+(()=>{
+  const sz=48,c=sz/2;
+  const ns='http://www.w3.org/2000/svg';
+  const svg=document.createElementNS(ns,'svg');
+  svg.setAttribute('width',sz);svg.setAttribute('height',sz);
+  svg.setAttribute('viewBox',`0 0 ${sz} ${sz}`);
+  const mk=(tag,attrs)=>{const el=document.createElementNS(ns,tag);Object.entries(attrs).forEach(([k,v])=>el.setAttribute(k,v));return el;};
+  svg.appendChild(mk('circle',{cx:c,cy:c,r:c-2,stroke:'#fff','stroke-width':1,fill:'none',opacity:.25}));
+  svg.appendChild(mk('circle',{cx:c,cy:c,r:c*.5,stroke:'#fff','stroke-width':1.2,fill:'none',opacity:.6}));
+  svg.appendChild(mk('circle',{cx:c,cy:c,r:2.5,fill:'#fff',opacity:.95}));
+  [[c,2,c,c-8],[c,c+8,c,sz-2],[2,c,c-8,c],[c+8,c,sz-2,c]].forEach(([x1,y1,x2,y2])=>
+    svg.appendChild(mk('line',{x1,y1,x2,y2,stroke:'#fff','stroke-width':1,opacity:.7})));
+  aimCursor.appendChild(svg);
+})();
 
-// ══════════════════════════════════════════════
-//  HISTORY
-// ══════════════════════════════════════════════
-async function saveSession() {
-  const fecha = document.getElementById('sessionDate').value || new Date().toISOString().slice(0,10);
-  const entry = {
-    session_code: sessionId,
-    session_date: fecha,
-    mesas: JSON.parse(JSON.stringify(mesas)),
-    jugadores: JSON.parse(JSON.stringify(jugadores))
-  };
-  if (sbReady) {
-    try {
-      // Upsert: si ya existe sesión con mismo código+fecha, actualiza
-      const { data: existing } = await sb.from('gastos_sessions')
-        .select('id').eq('session_code', sessionId).eq('session_date', fecha).limit(1);
-      if (existing && existing.length) {
-        await sb.from('gastos_sessions').update({ mesas: entry.mesas, jugadores: entry.jugadores })
-          .eq('id', existing[0].id);
-      } else {
-        await sb.from('gastos_sessions').insert(entry);
-      }
-      await loadHistoryFromDB();
-      alert('✓ Sesión guardada en la base de datos.');
-    } catch(e) {
-      alert('⚠ Error BD: ' + e.message + '\nGuardado localmente.');
-      history.push(entry); localStorage.setItem('ps-history-gastos', JSON.stringify(history));
+let aimClientX=0,aimClientY=0,aimActive=false;
+
+// Offset toward the dividing line: top panel → shift down, bottom panel → shift up
+const AIM_SHIFT=55; // px toward center
+
+function calcAimPos(touchX,touchY,player){
+  // player 1 = top panel → shift downward (toward divider)
+  // player 2 = bottom panel → shift upward (toward divider)
+  const dy=player===1?AIM_SHIFT:-AIM_SHIFT;
+  return {x:touchX, y:touchY+dy};
+}
+
+function showCursor(x,y,color){
+  aimCursor.style.left=x+'px';
+  aimCursor.style.top=y+'px';
+  aimCursor.querySelectorAll('circle,line').forEach(el=>el.setAttribute('stroke',color));
+  aimCursor.querySelector('circle:last-of-type').setAttribute('fill',color);
+  aimCursor.classList.add('show');
+  aimClientX=x; aimClientY=y;
+}
+function hideCursor(){ aimCursor.classList.remove('show'); aimActive=false; }
+
+function isMyTurn(player){
+  if(gameMode==='online') return activeTurnId===myId&&!firingLocked;
+  return phase==='game'&&currentPlayer===player&&!firingLocked;
+}
+
+function addFireTouch(panelEl,player){
+  panelEl.addEventListener('touchstart',e=>{
+    if(phase!=='game'||!isMyTurn(player))return;
+    if(gameMode==='online'&&player!==2)return; // online always fires from pBot (slot 2)
+    if(e.target.classList.contains('ptag'))return;
+    e.preventDefault();
+    aimActive=true;
+    const t=e.touches[0];
+    const pos=calcAimPos(t.clientX,t.clientY,player);
+    showCursor(pos.x,pos.y,'#a8d4ff');
+  },{passive:false});
+
+  panelEl.addEventListener('touchmove',e=>{
+    if(!aimActive)return;
+    e.preventDefault();
+    const t=e.touches[0];
+    const r=panelEl.getBoundingClientRect();
+    if(t.clientX<r.left||t.clientX>r.right||t.clientY<r.top||t.clientY>r.bottom){
+      aimCursor.classList.remove('show');
+      return;
     }
+    const pos=calcAimPos(t.clientX,t.clientY,player);
+    showCursor(pos.x,pos.y,'#a8d4ff');
+    if(gameMode==='online'){
+      const gfx=(t.clientX-r.left)/r.width;
+      const gfy=(t.clientY-r.top)/r.height;
+      broadcastAim(gfx,gfy);
+    }
+  },{passive:false});
+
+  panelEl.addEventListener('touchend',e=>{
+    if(!aimActive){hideCursor();return;}
+    e.preventDefault();
+    hideCursor();
+    if(gameMode==='online') sendMsg({type:'aim_end'});
+    const r=panelEl.getBoundingClientRect();
+    const fx=Math.min(r.right-2,Math.max(r.left+2,aimClientX));
+    const fy=Math.min(r.bottom-2,Math.max(r.top+2,aimClientY));
+    if(gameMode==='online') handleFireOnline({clientX:fx,clientY:fy});
+    else handleFire({clientX:fx,clientY:fy},player);
+  },{passive:false});
+
+  panelEl.addEventListener('touchcancel',()=>hideCursor());
+}
+
+let lastTouch=0;
+pTop.addEventListener('click',e=>{
+  if(Date.now()-lastTouch<600)return;
+  if(gameMode==='online')return; // online never fires from pTop
+  if(isMyTurn(1)) handleFire(e,1);
+});
+pBot.addEventListener('click',e=>{
+  if(Date.now()-lastTouch<600)return;
+  if(gameMode==='online'&&activeTurnId===myId&&!firingLocked) handleFireOnline(e);
+  else if(isMyTurn(2)) handleFire(e,2);
+});
+
+addFireTouch(pTop,1);
+addFireTouch(pBot,2);
+
+/* ══ NAME EDITOR (in-game, local mode) ══ */
+(()=>{
+  const ned=document.getElementById('name-editor');
+  const nedinp=document.getElementById('name-editor-inp');
+  const nedlbl=document.getElementById('name-editor-lbl');
+  const nedok=document.getElementById('name-editor-ok');
+  let _nedPlayer=1;
+
+  function openEditor(player){
+    _nedPlayer=player;
+    const name=player===1?(window._p1name||'Jugador 1'):(window._p2name||'Jugador 2');
+    nedlbl.textContent=`Nombre J${player}`;
+    nedlbl.style.color=hex(player);
+    nedinp.style.color=hex(player);
+    nedinp.style.borderColor=hex(player);
+    nedok.style.color=hex(player);
+    nedok.style.borderColor=hex(player);
+    nedinp.value=name;
+    ned.classList.add('show');
+    setTimeout(()=>nedinp.focus(),80);
+  }
+
+  function saveEditor(){
+    const name=nedinp.value.trim().slice(0,16)||'Jugador '+_nedPlayer;
+    if(_nedPlayer===1) window._p1name=name; else window._p2name=name;
+    // Update ptag and scoreboard
+    panel(_nedPlayer).querySelector('.ptag').textContent=name;
+    document.querySelector(`#sb${_nedPlayer} .sb-lbl`).textContent=name.slice(0,8);
+    ned.classList.remove('show');
+  }
+
+  nedok.addEventListener('click',saveEditor);
+  nedinp.addEventListener('keydown',e=>{ if(e.key==='Enter')saveEditor(); });
+  ned.addEventListener('click',e=>{ if(e.target===ned)ned.classList.remove('show'); });
+
+  // Expose so startGame can wire ptags
+  window.openNameEditor=openEditor;
+})();
+
+function activateEditablePtags(){
+  [1,2].forEach(p=>{
+    const tag=panel(p).querySelector('.ptag');
+    if(!tag)return;
+    // Set initial name from lobby
+    const name=p===1?(window._p1name||'Jugador 1'):(window._p2name||'Jugador 2');
+    tag.textContent=name;
+    tag.classList.add('editable');
+    // Clone to clear old listeners
+    const fresh=tag.cloneNode(true);
+    tag.parentNode.replaceChild(fresh,tag);
+    fresh.classList.add('editable');
+    fresh.addEventListener('click',e=>{ e.stopPropagation(); window.openNameEditor(p); });
+    fresh.addEventListener('touchstart',e=>{ e.stopPropagation(); },{passive:true});
+    fresh.addEventListener('touchend',e=>{ e.stopPropagation(); e.preventDefault(); window.openNameEditor(p); },{passive:false});
+  });
+}
+
+function handleFire(e,player){
+  if(firingLocked)return;
+  const rem=remaining[player];if(!rem.length)return;
+  const ownP=panel(player);
+  const r=ownP.getBoundingClientRect();
+  const gfx=Math.min(1,Math.max(0,(e.clientX-r.left)/r.width));
+  const gfy=Math.min(1,Math.max(0,(e.clientY-r.top)/r.height));
+  const rivShips=ships[player===1?2:1];
+  let bestHit=null, bestDist=Infinity;
+  rem.forEach(idx=>{
+    const ship=rivShips[idx];
+    const res=hitCheck(gfx,gfy,ship,player);
+    if(res.hit&&res.pxDist<bestDist){bestDist=res.pxDist;bestHit={idx,ship,res};}
+  });
+  let hitResult=bestHit;
+  // error % vs current target for display
+  const targetIdx=rem[0];
+  const targetShip=rivShips[targetIdx];
+  const targetRes=hitCheck(gfx,gfy,targetShip,player);
+  const displayErr=targetRes.errPct;
+
+  const isHit=hitResult!==null;
+  // mirror position in rival panel (absolute px)
+  const rivR=rivalPanel(player).getBoundingClientRect();
+  const mirrorX=gfx*rivR.width, mirrorY=mirrorFy(gfy)*rivR.height;
+  const entry={player,gfx,gfy,hit:isHit,errPct:displayErr,mirrorX,mirrorY,
+    hitShipIdx:isHit?hitResult.idx:null};
+  history.push(entry);
+
+  if(isHit){
+    const ship=hitResult.ship;
+    ship.hp--;
+    const shipOwner=player===1?2:1;
+    redrawShipSVG(ship,hex(shipOwner));
+    miniExplosion(rivalPanel(player),mirrorX,mirrorY,hex(player));
+    if(ship.hp<=0){
+      remaining[player]=remaining[player].filter(i=>i!==hitResult.idx);
+      score[player]++;
+    } else {
+      if(ship.type.canMove){dodgeShip(ship,shipOwner);}
+    }
+  }
+  refreshScores();
+
+  // Re-render immediately so impact/explosion is visible
+  renderGamePanels();
+  // Block clicks while toast shows
+  pTop.classList.add('no-click');pTop.classList.remove('can-click');
+  pBot.classList.add('no-click');pBot.classList.remove('can-click');
+
+  const err=displayErr.toFixed(1)+'%';
+  const cls=displayErr<5?'perfect':displayErr<12?'good':displayErr<22?'ok':'bad';
+  if(isHit){
+    const sunk=hitResult.ship.hp<=0;
+    showToast(err,cls,sunk?`💥 Hundida · J${player} continúa`:`🔥 Impacto · J${player} continúa`,1500);
   } else {
-    history.push(entry);
-    localStorage.setItem('ps-history-gastos', JSON.stringify(history));
-    alert('✓ Sesión guardada localmente.');
+    showToast(err,cls,`❌ Fallo · turno J${player===1?2:1}`,1500);
   }
-  if (document.getElementById('historyPanel').style.display !== 'none') renderHistory();
+  setTimeout(()=>afterShot(isHit,player),1600);
 }
 
-async function loadSessionByDate() {
-  const fecha = document.getElementById('sessionDate').value;
-  if (!fecha) { alert('Selecciona una fecha primero.'); return; }
-  if (!sbReady) { alert('La base de datos no está conectada.'); return; }
-  try {
-    const { data, error } = await sb.from('gastos_sessions')
-      .select('*').eq('session_code', sessionId).eq('session_date', fecha).limit(1);
-    if (error) throw error;
-    if (!data || !data.length) { alert(`No hay datos guardados para el código "${sessionId}" en la fecha ${fecha}.`); return; }
-    const s = data[0];
-    // Restore IDs if missing (older data)
-    mesas = (s.mesas || []).map(m => ({ ...m, id: m.id || uid(), horaEntrada: m.horaEntrada||'', horaSalida: m.horaSalida||'' }));
-    jugadores = (s.jugadores || []).map(j => ({
-      ...j, id: j.id || uid(),
-      mesas: (j.mesas||[]).map(jm => ({ ...jm, mid: jm.mid||mesas[0]?.id||'', horaEntrada: jm.horaEntrada||'', horaSalida: jm.horaSalida||'' }))
-    }));
-    renderAll(); saveLocal();
-    alert(`✓ Datos del ${fecha} cargados correctamente.`);
-  } catch(e) { alert('Error al cargar: ' + e.message); }
+/* Dodge: move ship a small random amount within its panel */
+function dodgeShip(ship,owner){
+  const p=panel(owner);const r=p.getBoundingClientRect();
+  const hw=ship.type.w/2/r.width, hh=ship.type.h/2/r.height;
+  const dx=(Math.random()-.5)*.15, dy=(Math.random()-.5)*.15;
+  ship.fx=Math.min(1-hw,Math.max(hw,ship.fx+dx));
+  ship.fy=Math.min(1-hh,Math.max(hh,ship.fy+dy));
+  if(ship.wrap){
+    ship.wrap.classList.remove('no-transition');
+    positionShipEl(ship.wrap,p,ship.fx,ship.fy);}}
+
+/* Mini explosion SVG */
+function miniExplosion(panelEl,x,y,color){
+  const wrap=document.createElement('div');wrap.className='mini-exp';
+  wrap.style.left=x+'px';wrap.style.top=y+'px';
+  const sz=40,svg=mkSVG(sz,sz),cx=sz/2,cy=sz/2;
+  addEl(svg,'circle',{cx,cy,r:sz*.35,stroke:color,'stroke-width':1.5,fill:'none',opacity:.9});
+  for(let i=0;i<8;i++){const a=i*Math.PI/4,r1=sz*.1,r2=sz*.45;
+    addEl(svg,'line',{x1:cx+r1*Math.cos(a),y1:cy+r1*Math.sin(a),x2:cx+r2*Math.cos(a),y2:cy+r2*Math.sin(a),stroke:color,'stroke-width':i%2===0?2:1,opacity:.95});}
+  addEl(svg,'circle',{cx,cy,r:4,fill:'#fff',opacity:1});
+  wrap.appendChild(svg);panelEl.appendChild(wrap);
+  setTimeout(()=>wrap.remove(),600);}
+
+/* Shot / Impact SVGs */
+function drawShotSVG(color,hit){
+  const sz=hit?20:13,cx=sz/2,cy=sz/2,svg=mkSVG(sz,sz);
+  const a=hit?.82:.35,sw=hit?1:.6,r=sz*.3,g=sz*.13;
+  const segs=[[cx-g,cy,r,90,180],[cx,cy-g,r,180,270],[cx+g,cy,r,270,360],[cx,cy+g,r,0,90]];
+  for(const[ox,oy,rr,sa,ea]of segs){const p=ns('path');
+    const s1=sa*Math.PI/180,e1=ea*Math.PI/180;
+    p.setAttribute('d',`M${ox+rr*Math.cos(s1)},${oy+rr*Math.sin(s1)} A${rr},${rr} 0 0,1 ${ox+rr*Math.cos(e1)},${oy+rr*Math.sin(e1)}`);
+    p.setAttribute('stroke',color);p.setAttribute('stroke-width',sw);p.setAttribute('fill','none');p.setAttribute('opacity',a);svg.appendChild(p);}
+  addEl(svg,'circle',{cx,cy,r:hit?1.5:.9,fill:color,opacity:a});return svg;}
+
+function drawImpactSVG(color,hit){
+  const sz=hit?30:16,cx=sz/2,cy=sz/2,svg=mkSVG(sz,sz);
+  if(hit){
+    addEl(svg,'circle',{cx,cy,r:sz*.4,stroke:color,'stroke-width':.9,fill:'none',opacity:.4});
+    for(let i=0;i<8;i++){const a=i*Math.PI/4,r1=sz*.22,r2=sz*.44;
+      addEl(svg,'line',{x1:cx+r1*Math.cos(a),y1:cy+r1*Math.sin(a),x2:cx+r2*Math.cos(a),y2:cy+r2*Math.sin(a),stroke:color,'stroke-width':i%2===0?1.2:.6,opacity:.85});}
+    addEl(svg,'circle',{cx,cy,r:2.5,fill:color,opacity:1});
+  } else {
+    addEl(svg,'circle',{cx,cy,r:sz*.38,stroke:color,'stroke-width':.7,fill:'none',opacity:.28});
+    const d=sz*.24;
+    for(const[dx,dy]of[[1,1],[1,-1]]){
+      addEl(svg,'line',{x1:cx-d*dx,y1:cy-d*dy,x2:cx+d*dx,y2:cy+d*dy,stroke:color,'stroke-width':.8,opacity:.4});}}
+  return svg;}
+
+function afterShot(hit,player){
+  // Win: in training human is player 2, wins when remaining[2] empty
+  const trainWin=gameMode==='train'&&remaining[2].length===0;
+  const localWin=gameMode!=='train'&&(remaining[1].length===0||remaining[2].length===0);
+  if(trainWin||localWin){setTimeout(showFinal,400);return;}
+
+  if(hit){
+    renderGamePanels();
+  } else {
+    if(gameMode==='train'){
+      // Miss in training — no turn switch, player 2 keeps shooting
+      renderGamePanels();
+    } else {
+      currentPlayer=currentPlayer===1?2:1;
+      if(!remaining[currentPlayer].length){setTimeout(showFinal,400);return;}
+      showHandoff(currentPlayer);
+    }
+  }
 }
 
-async function loadHistoryFromDB() {
-  if (!sbReady) { history = JSON.parse(localStorage.getItem('ps-history-gastos') || '[]'); return; }
-  try {
-    const { data, error } = await sb.from('gastos_sessions')
-      .select('*').eq('session_code', sessionId).order('session_date', { ascending: false });
-    if (error) throw error;
-    history = data || [];
-  } catch(e) { history = JSON.parse(localStorage.getItem('ps-history-gastos') || '[]'); }
-}
-async function deleteHistory(idOrIdx) {
-  if (!confirm('¿Borrar esta sesión?')) return;
-  if (sbReady && typeof idOrIdx === 'string') {
-    await sb.from('gastos_sessions').delete().eq('id', idOrIdx);
-    await loadHistoryFromDB();
-  } else { history.splice(+idOrIdx, 1); localStorage.setItem('ps-history-gastos', JSON.stringify(history)); }
-  renderHistory();
-}
-function toggleHistory() {
-  const p = document.getElementById('historyPanel');
-  if (p.style.display === 'none') { renderHistory(); p.style.display = ''; }
-  else p.style.display = 'none';
-}
-function renderHistory() {
-  const list = document.getElementById('historyList');
-  if (!history.length) { list.innerHTML = '<div class="empty-state">No hay sesiones guardadas todavía.</div>'; return; }
-  list.innerHTML = history.map((s, idx) => {
-    const id = s.id || idx; const isDb = !!s.id;
-    const ms = (s.mesas || []).map(m => esc(m.nombre)).join(', ') || '—';
-    const js = (s.jugadores || []).map(j => esc(j.nombre)).filter(Boolean).join(', ') || '—';
-    return `
-      <div class="history-session">
-        <div class="history-session-header" onclick="toggleDetail('hd${idx}')">
-          <span class="history-date">${s.session_date}</span>
-          <span class="history-meta">${(s.mesas||[]).length} mesa(s) · ${(s.jugadores||[]).filter(j=>j.nombre).length} jugador(es)</span>
-          <button class="history-del" onclick="event.stopPropagation();deleteHistory(${isDb ? `'${id}'` : idx})">Borrar</button>
-        </div>
-        <div class="history-detail" id="hd${idx}">
-          <strong style="color:var(--cyan-dim)">Mesas:</strong> ${ms}<br>
-          <strong style="color:var(--cyan-dim)">Jugadores:</strong> ${js}
-        </div>
-      </div>`;
-  }).join('');
-}
-function toggleDetail(id) { document.getElementById(id).classList.toggle('open'); }
-
-// ══════════════════════════════════════════════
-//  CSV EXPORT / IMPORT
-// ══════════════════════════════════════════════
-function exportCSV() {
-  const fecha = document.getElementById('sessionDate').value;
-  let csv = '##POOL-SPLITTER-GASTOS-v3\n';
-  csv += `FECHA,${fecha}\nCODIGO,${sessionId}\n\n`;
-  csv += '##MESAS\nNombre,Precio_hora,HoraEntrada,HoraSalida\n';
-  mesas.forEach(m => { csv += `${q(m.nombre)},${m.precio},${m.horaEntrada||''},${m.horaSalida||''}\n`; });
-  csv += '\n##JUGADORES\nNombre,Mesa_nombre,HoraEntrada,HoraSalida\n';
-  jugadores.forEach(j => {
-    if (j.mesas.length) j.mesas.forEach(jm => {
-      csv += `${q(j.nombre)},${q(getMesa(jm.mid)?.nombre||'')},${jm.horaEntrada||''},${jm.horaSalida||''}\n`;
-    });
-    else csv += `${q(j.nombre)},,,\n`;
+function showHandoff(nextPlayer){
+  firingLocked=true;
+  showPlayerLabel(nextPlayer,()=>{
+    renderGamePanels();
+    setTimeout(()=>{ firingLocked=false; },300);
   });
-  csv += '\n##HISTORIAL\nFecha,Mesas_JSON,Jugadores_JSON\n';
-  history.forEach(h => { csv += `${h.session_date},${q(JSON.stringify(h.mesas||[]))},${q(JSON.stringify(h.jugadores||[]))}\n`; });
-  csv += '\n##PLANTILLA_JUGADORES\nNombre\n';
-  globalPlayers.forEach(p => { csv += `${q(p.name)}\n`; });
-  csv += '\n##PLANTILLA_MESAS\nNombre,Precio\n';
-  globalTables.forEach(t => { csv += `${q(t.name)},${t.price}\n`; });
-  dlCSV(csv, `pool-gastos-${sessionId}-${fecha||'sesion'}.csv`);
 }
 
-async function importCSV(input) {
-  const file = input.files[0]; if (!file) return;
-  const reader = new FileReader();
-  reader.onload = async e => {
-    const lines = e.target.result.split('\n').map(l => l.trimEnd());
-    let sec = '', nMesas = [], nJugs = [], nHist = [], nGPlayers = [], nGTables = [], fecha = '';
-    for (const line of lines) {
-      if (!line || line.startsWith('#')) { sec = line.replace(/^#+/, '').trim(); continue; }
-      if (line.startsWith('FECHA,'))  { fecha = line.split(',')[1]; continue; }
-      if (line.startsWith('CODIGO,')) continue; // ignore, session code managed separately
-      if (/^(Nombre|Fecha)/.test(line)) continue;
-      const cols = parseCSVLine(line);
-      if (sec === 'MESAS') {
-        const [nombre, precio, horaEntrada, horaSalida] = cols;
-        if (nombre) nMesas.push({ id: uid(), nombre, precio: +precio, minutos: 0, horaEntrada: horaEntrada||'', horaSalida: horaSalida||'' });
-      } else if (sec === 'JUGADORES') {
-        const [nombre, mesaNombre, horaEntrada, horaSalida] = cols;
-        if (!nombre) continue;
-        let j = nJugs.find(x => x.nombre === nombre);
-        if (!j) { j = { id: uid(), nombre, mesas: [] }; nJugs.push(j); }
-        const m = nMesas.find(m => m.nombre === mesaNombre);
-        if (m) j.mesas.push({ mid: m.id, minutos: 0, horaEntrada: horaEntrada||'', horaSalida: horaSalida||'' });
-      } else if (sec === 'HISTORIAL') {
-        const [fd, mj, jj] = cols;
-        try { nHist.push({ session_date: fd, mesas: JSON.parse(mj), jugadores: JSON.parse(jj) }); } catch(e){}
-      } else if (sec === 'PLANTILLA_JUGADORES') {
-        const [nombre] = cols; if (nombre) nGPlayers.push({ name: nombre });
-      } else if (sec === 'PLANTILLA_MESAS') {
-        const [nombre, price] = cols; if (nombre) nGTables.push({ name: nombre, price: +price });
+/* Toast */
+function showToast(errText,cls,msg,dur){
+  toastErr.textContent=errText;
+  toastErr.className=cls||'';
+  if(!cls)toastErr.style.color=errText.startsWith('J')?hex(parseInt(errText[1])):'var(--text)';
+  else toastErr.style.color='';
+  toastMsg.innerHTML=msg;
+  toastEl.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>toastEl.classList.remove('show'),dur||1400);}
+
+/* Final */
+function showFinal(){
+  phase='done';
+  pTop.classList.add('no-click');pBot.classList.add('no-click');
+  const tbl=document.getElementById('fo-table');
+  tbl.innerHTML=`<div class="ftr hdr"><div>#</div><div>J1</div><div>J2</div><div>Res</div></div>`;
+  let t1=0,t2=0,n1=0,n2=0;
+  for(let i=0;i<TOTAL_SHIPS;i++){
+    const h1=history.filter(h=>h.player===1&&h.hitShipIdx===i);
+    const h2=history.filter(h=>h.player===2&&h.hitShipIdx===i);
+    const s2=ships[2][i],s1=ships[1][i];
+    const sunk1=s2&&s2.hp<=0,sunk2=s1&&s1.hp<=0;
+    let w='—';if(sunk1&&!sunk2)w='<span class="tag tg1">J1</span>';
+    else if(sunk2&&!sunk1)w='<span class="tag tg2">J2</span>';
+    else if(sunk1&&sunk2)w='<span class="tag tgt">X</span>';
+    const e1=h1.length?h1[h1.length-1].errPct:null;
+    const e2=h2.length?h2[h2.length-1].errPct:null;
+    if(e1!==null){t1+=e1;n1++;}if(e2!==null){t2+=e2;n2++;}
+    const row=document.createElement('div');row.className='ftr';
+    row.innerHTML=`<div class="fen">${i+1}</div><div class="fe1">${e1!==null?e1.toFixed(1)+'%':'—'}</div><div class="fe2">${e2!==null?e2.toFixed(1)+'%':'—'}</div><div class="few">${w}</div>`;
+    tbl.appendChild(row);}
+  const a1=n1?t1/n1:0,a2=n2?t2/n2:0;
+  document.getElementById('fo-t1v').textContent=`${a1.toFixed(1)}% · ${score[1]} hundidas`;
+  document.getElementById('fo-t2v').textContent=`${a2.toFixed(1)}% · ${score[2]} hundidas`;
+  const fw=document.getElementById('fo-winner');
+  if(score[1]>score[2]){fw.textContent='🏆 Victoria — Jugador 1';fw.style.color=hex(1);}
+  else if(score[2]>score[1]){fw.textContent='🏆 Victoria — Jugador 2';fw.style.color=hex(2);}
+  else if(a1<a2){fw.textContent='🏆 J1 gana por precisión';fw.style.color=hex(1);}
+  else if(a2<a1){fw.textContent='🏆 J2 gana por precisión';fw.style.color=hex(2);}
+  else{fw.textContent='⚔ Empate';fw.style.color='#a8d4ff';}
+  foOverlay.classList.add('show');}
+
+
+/* ══════════════════════════════════════════════════════════
+   LOBBY & ONLINE  — Star Siege multiplayer
+   
+   Flow:
+   • Host clicks "Batalla online" → waits in lobby, shows URL + player list
+   • Client opens URL → sees host in list, chooses Enemy or Reinforce
+   • Both get 30s placement timer simultaneously  
+   • Joiner attacks first once both ready
+   • Late joiners mid-game: enemy = avg ships; reinforce = ally's ships
+══════════════════════════════════════════════════════════ */
+
+let gameMode='local';
+let myName='Comandante';
+let myPreferredTeam='A'; // 'A'=naranja(host default), 'B'=turquesa
+
+function selectLobbyColor(team){
+  myPreferredTeam=team;
+  const oBtn=document.getElementById('color-orange');
+  const tBtn=document.getElementById('color-teal');
+  if(!oBtn||!tBtn) return;
+  if(team==='A'){
+    oBtn.style.opacity='1'; oBtn.style.border='3px solid #ff6b35'; oBtn.style.boxShadow='0 0 12px #ff6b3599';
+    tBtn.style.opacity='.4'; tBtn.style.border='2px solid #4ecdc466'; tBtn.style.boxShadow='none';
+  } else {
+    tBtn.style.opacity='1'; tBtn.style.border='3px solid #4ecdc4'; tBtn.style.boxShadow='0 0 12px #4ecdc499';
+    oBtn.style.opacity='.4'; oBtn.style.border='2px solid #ff6b3566'; oBtn.style.boxShadow='none';
+  }
+}
+
+/* ── Firebase config ── */
+const FB_CONFIG={
+  apiKey:"AIzaSyB1XGCfZSMDhZT1FuLpya2jCRhXcTnuB9A",
+  authDomain:"star-siege-fd4fa.firebaseapp.com",
+  databaseURL:"https://star-siege-fd4fa-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId:"star-siege-fd4fa",
+  storageBucket:"star-siege-fd4fa.firebasestorage.app",
+  messagingSenderId:"706658381050",
+  appId:"1:706658381050:web:9130519e4eae71981c2d43"
+};
+// NOTE: Replace with your own Firebase project for production.
+// Rules should allow read/write to /rooms/* without auth for this to work.
+let fbApp, fbDb, fbRoom;
+
+function fbInit(){
+  if(fbApp) return;
+  try{
+    fbApp=firebase.initializeApp(FB_CONFIG,'starsiegegame');
+    fbDb=firebase.database(fbApp);
+  }catch(e){ showToast('','tg1','Error Firebase: '+e.message,4000); }
+}
+
+let roomsListenerRef=null;
+
+function stopRoomsListener(){
+  if(roomsListenerRef){ roomsListenerRef.off(); roomsListenerRef=null; }
+}
+
+function loadRoomsList(){
+  if(!fbDb){ fbInit(); }
+  if(!fbDb) return;
+  const listEl=document.getElementById('room-list');
+  listEl.innerHTML='<div class="room-empty">Buscando salas…</div>';
+
+  stopRoomsListener();
+  roomsListenerRef=fbDb.ref('rooms');
+
+  // Clean up stale rooms (older than 5 min of inactivity)
+  const cutoff=Date.now()-5*60*1000;
+
+  roomsListenerRef.on('value', snap=>{
+    const rooms=snap.val()||{};
+    listEl.innerHTML='';
+    const active=[];
+    Object.entries(rooms).forEach(([id,room])=>{
+      if(!room.meta) return;
+      const lastActivity=room.meta.lastActivity||room.meta.created||0;
+      if(lastActivity<cutoff){
+        // Auto-delete stale room
+        fbDb.ref('rooms/'+id).remove();
+        return;
       }
+      const players=Object.values(room.players||{});
+      if(!players.length) return;
+      active.push({id,meta:room.meta,players,lastActivity});
+    });
+
+    if(!active.length){
+      listEl.innerHTML='<div class="room-empty">No hay partidas activas</div>';
+      return;
     }
-    mesas = nMesas; jugadores = nJugs;
-    if (fecha) document.getElementById('sessionDate').value = fecha;
-    if (nGPlayers.length) { globalPlayers = nGPlayers; }
-    if (nGTables.length)  { globalTables  = nGTables; }
-    saveGlobals(); renderPlayerTemplate(); renderTableTemplate();
-    for (const h of nHist) {
-      const exists = history.some(x => x.session_date === h.session_date);
-      if (!exists) {
-        if (sbReady) await sb.from('gastos_sessions').insert({ session_date: h.session_date, mesas: h.mesas, jugadores: h.jugadores });
-        else history.push(h);
-      }
-    }
-    if (sbReady) await loadHistoryFromDB();
-    else localStorage.setItem('ps-history-gastos', JSON.stringify(history));
-    renderAll();
-    if (document.getElementById('historyPanel').style.display !== 'none') renderHistory();
-    saveLocal();
-    alert('✓ CSV importado correctamente.');
+
+    active.sort((a,b)=>b.meta.created-a.meta.created);
+    active.forEach(({id,meta,players})=>{
+      const item=document.createElement('div');
+      item.className='room-item';
+      const age=Math.round((Date.now()-meta.created)/60000);
+      const ageStr=age<1?'ahora':age+'min';
+      item.innerHTML=`
+        <div>
+          <div class="room-code">${id}</div>
+          <div class="room-info">${players.length} jugador${players.length!==1?'es':''} · ${ageStr}</div>
+        </div>
+        <div class="room-info" style="color:#4ecdc4">Unirse ›</div>`;
+      item.addEventListener('click',()=>{
+        stopRoomsListener();
+        myName=(lobbyName.value.trim()||'Comandante').slice(0,16);
+        clientJoin(id);
+      });
+      listEl.appendChild(item);
+    });
+  });
+
+  // "Nueva partida" button
+  document.getElementById('lobby-new-room').onclick=()=>{
+    stopRoomsListener();
+    myName=(lobbyName.value.trim()||'Comandante').slice(0,16);
+    hostCreate();
   };
-  reader.readAsText(file);
-  input.value = '';
 }
 
-// ══════════════════════════════════════════════
-//  LOCAL STORAGE
-// ══════════════════════════════════════════════
-function saveLocal() {
-  localStorage.setItem('ps-gastos', JSON.stringify({ mesas, jugadores, fecha: document.getElementById('sessionDate').value }));
-  pushGun();
-}
-function loadLocal() {
-  try {
-    const d = JSON.parse(localStorage.getItem('ps-gastos') || '{}');
-    mesas = d.mesas || []; jugadores = d.jugadores || [];
-    if (d.fecha) document.getElementById('sessionDate').value = d.fecha;
-  } catch(e) {}
-  history = JSON.parse(localStorage.getItem('ps-history-gastos') || '[]');
-}
+/* ── Online state ── */
+let isHost=false, myId=null, myRoomId=null;
+let fbMsgRef=null, fbMsgListener=null;
+let fbPresenceRef=null;
+let processedMsgIds=new Set();
 
-// ══════════════════════════════════════════════
-//  UTILS
-// ══════════════════════════════════════════════
-let _uidC = 0;
-function uid() { return 't' + Date.now() + (++_uidC); }
-function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
-function q(s)   { return '"' + String(s||'').replace(/"/g,'""') + '"'; }
-function dlCSV(csv, name) {
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(new Blob(['\ufeff'+csv], { type:'text/csv;charset=utf-8;' }));
-  a.download = name; a.click();
-}
-function parseCSVLine(line) {
-  const res = []; let cur = '', inQ = false;
-  for (let i = 0; i < line.length; i++) {
-    const c = line[i];
-    if (c==='"'&&!inQ){inQ=true;}
-    else if(c==='"'&&inQ&&line[i+1]==='"'){cur+='"';i++;}
-    else if(c==='"'&&inQ){inQ=false;}
-    else if(c===','&&!inQ){res.push(cur);cur='';}
-    else cur+=c;
-  }
-  res.push(cur); return res;
-}
+/* ── Game state ── */
+let myTeam='A';
+let combatants={};
+let activeTurnId=null;
+let battleStarted=false;
+let myOnlineShips=[];
+let enemyOnlineShips=[];
 
-// ══════════════════════════════════════════════
-//  INIT
-// ══════════════════════════════════════════════
-async function pingServer() {
-  try {
-    await fetch('https://gun-manhattan.herokuapp.com/gun', {
-      mode: 'no-cors', signal: AbortSignal.timeout(4000)
-    });
-    return true;
-  } catch(e) { return false; }
-}
+/* ── DOM ── */
+const lobbyEl=document.getElementById('lobby');
+const lobbyName=document.getElementById('lobby-name');
+const lobbyStatus=document.getElementById('lobby-status');
+const lobbyUrlBox=document.getElementById('lobby-url-box');
+const lobbyUrlEl=document.getElementById('lobby-url');
+const lobbyStart=document.getElementById('lobby-start');
+const invasionAlert=document.getElementById('invasion-alert');
+const invasionCountdown=document.getElementById('invasion-countdown');
 
-document.addEventListener('DOMContentLoaded', () => {
-  document.getElementById('sessionDate').value = new Date().toISOString().slice(0,10);
-  initSession();
-  loadLocal();
-  loadGlobals();
-  renderPlayerTemplate();
-  renderTableTemplate();
-  updateDataLists();
-  
-  
-  initSupabase();
-  renderAll();
-  // Register service worker (PWA)
-  if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js');
-  // Auto-connect en directo; si falla, pedir confirmación para solo local
-  setMode('live');
-  pingServer().then(ok => {
-    if (!ok) {
-      const goLocal = confirm('⚠ No se pudo conectar al servidor en tiempo real.\n¿Cambiar a modo solo local?');
-      if (goLocal) setMode('local');
+/* ── Mode buttons ── */
+['local','train','battle'].forEach(m=>{
+  document.getElementById('mode-'+m).addEventListener('click',()=>{
+    document.querySelectorAll('.mode-btn').forEach(b=>b.classList.remove('active'));
+    document.getElementById('mode-'+m).classList.add('active');
+    gameMode=m==='battle'?'online':m;
+    document.getElementById('lobby-j2-row').style.display=gameMode==='local'?'':'none';
+    document.getElementById('lobby-color-row').style.display=gameMode==='online'?'':'none';
+    // Reset color selection when switching to online (naranja por defecto)
+    if(gameMode==='online') selectLobbyColor('A');
+    document.getElementById('lbl-name1').textContent='Comandante';
+    const roomsEl=document.getElementById('lobby-rooms');
+    if(gameMode==='online'){
+      roomsEl.classList.add('show');
+      lobbyStart.style.display='none';
+      fbInit();
+      loadRoomsList();
+    } else {
+      roomsEl.classList.remove('show');
+      lobbyStart.style.display='';
+      stopRoomsListener();
     }
-  });
-  // Secret: 5 clicks on the header ball → open BD config
-  let _bc = 0, _bt = null;
-  document.querySelector('.ball').style.cursor = 'default';
-  document.querySelector('.ball').addEventListener('click', () => {
-    _bc++; clearTimeout(_bt);
-    if (_bc >= 5) { _bc = 0; openCfg(); }
-    else _bt = setTimeout(() => _bc = 0, 3000);
+    lobbyUrlBox.classList.remove('show');
+    lobbyStatus.textContent='';
+    lobbyStart.textContent='Comenzar';
+    lobbyStart.disabled=false;
+    const pl=document.getElementById('lobby-player-list');
+    if(pl) pl.remove();
   });
 });
+
+// Color picker buttons
+document.getElementById('color-orange').addEventListener('click',()=>selectLobbyColor('A'));
+document.getElementById('color-teal').addEventListener('click',()=>selectLobbyColor('B'));
+
+document.getElementById('lobby-copy').addEventListener('click',()=>{
+  navigator.clipboard.writeText(lobbyUrlEl.textContent)
+    .then(()=>{
+      document.getElementById('lobby-copy').textContent='✓ Copiado';
+      setTimeout(()=>document.getElementById('lobby-copy').textContent='📋 Copiar enlace',2000);
+    }).catch(()=>{});
+});
+
+lobbyStart.addEventListener('click',()=>{
+  myName=(lobbyName.value.trim()||'Jugador 1').slice(0,16);
+  if(gameMode==='local'){
+    const n2=document.getElementById('lobby-name2').value.trim().slice(0,16)||'Jugador 2';
+    document.querySelector('#sb1 .sb-lbl').textContent=myName.slice(0,8);
+    document.querySelector('#sb2 .sb-lbl').textContent=n2.slice(0,8);
+    window._p1name=myName; window._p2name=n2;
+    lobbyEl.classList.add('hide');
+    document.getElementById('game-shell').classList.add('show');
+    buildPips();showPlayerLabel(1,()=>startPlacement(1));
+  } else if(gameMode==='train'){
+    lobbyEl.classList.add('hide');
+    document.getElementById('game-shell').classList.add('show');
+    startTrainingMode();
+  } else {
+    startOnlineMode();
+  }
+});
+
+function getUrlRoom(){ return new URLSearchParams(location.search).get('room'); }
+
+/* ═══════════════════════════════════════════════
+   TRAINING MODE
+═══════════════════════════════════════════════ */
+function startTrainingMode(){
+  buildPips();
+  showPlayerLabel(2,()=>startTrainBattle());
+}
+
+/* ═══════════════════════════════════════════════
+   FIREBASE MESSAGING
+═══════════════════════════════════════════════ */
+function sendMsg(obj){
+  if(!fbMsgRef) return;
+  obj._from=myId;
+  obj._id=Math.random().toString(36).slice(2);
+  obj._ts=Date.now();
+  fbMsgRef.push(obj);
+  // Update room activity timestamp
+  if(fbRoom) fbRoom.child('meta/lastActivity').set(Date.now());
+}
+
+function sendTo(pid, obj){ obj._to=pid; sendMsg(obj); }
+function broadcastAll(obj, excludeId){
+  obj._broadcast=true;
+  obj._exclude=excludeId||null;
+  sendMsg(obj);
+}
+function hostSend(obj){ sendTo(isHost?myId:'host', obj); }
+
+function startListening(){
+  if(fbMsgListener){ fbMsgRef.off('child_added',fbMsgListener); }
+  // Only listen to messages from now on
+  const since=Date.now();
+  fbMsgListener=fbMsgRef.orderByChild('_ts').startAt(since).on('child_added',snap=>{
+    const msg=snap.val();
+    if(!msg||processedMsgIds.has(msg._id)) return;
+    processedMsgIds.add(msg._id);
+    if(msg._from===myId) return; // own message
+    // Check if addressed to me
+    if(msg._to && msg._to!==myId && msg._to!=='host') return;
+    if(msg._broadcast && msg._exclude===myId) return;
+    // Route
+    if(isHost) hostReceive(msg);
+    else clientReceive(msg);
+  });
+}
+
+/* ═══════════════════════════════════════════════
+   ONLINE — ENTRY POINT
+═══════════════════════════════════════════════ */
+function startOnlineMode(){
+  stopRoomsListener();
+  fbInit();
+  if(!fbDb){ showToast('','tg1','Firebase no disponible',3000); return; }
+  const roomParam=getUrlRoom();
+  if(roomParam){ clientJoin(roomParam); } else { hostCreate(); }
+}
+
+/* ═══════════════════════════════════════════════
+   HOST
+═══════════════════════════════════════════════ */
+function hostCreate(){
+  lobbyStart.disabled=true;
+  lobbyStatus.textContent='Creando sala…';
+  isHost=true; myTeam=myPreferredTeam;
+  myId='host_'+Date.now().toString(36);
+  myRoomId=Math.random().toString(36).slice(2,8).toUpperCase();
+
+  fbRoom=fbDb.ref('rooms/'+myRoomId);
+  fbMsgRef=fbRoom.child('messages');
+  fbPresenceRef=fbRoom.child('players/'+myId);
+
+  // Write host presence
+  fbPresenceRef.set({id:myId,name:myName,team:myTeam,ts:Date.now()});
+  fbPresenceRef.onDisconnect().remove();
+
+  // Write room meta
+  fbRoom.child('meta').set({host:myId,created:Date.now(),lastActivity:Date.now(),roomId:myRoomId});
+
+  combatants[myId]={id:myId,name:myName,team:myTeam,ships:[],_shipObjs:[],inGame:false,score:0};
+
+  startListening();
+
+  // Go directly to placement
+  lobbyEl.classList.add('hide');
+  document.getElementById('game-shell').classList.add('show');
+  buildPips();
+  startPlacement(1);
+  startPlacementTimer(30,()=>{ if(ships[1].length<10) randomPlacement(1); });
+  showInviteButton();
+
+  // Listen for new players joining
+  fbRoom.child('players').on('child_added',snap=>{
+    const p=snap.val();
+    if(!p||p.id===myId) return;
+    if(!combatants[p.id]){
+      combatants[p.id]={id:p.id,name:p.name,team:'?',ships:[],_shipObjs:[],inGame:false,score:0};
+    }
+    // Send room state to new joiner
+    setTimeout(()=>{
+      sendTo(p.id,{
+        type:'room_state',
+        players:serializeCombatants(),
+        hostId:myId,
+        battleStarted,
+        avgShips:calcAvgLivingShips()
+      });
+    }, 500);
+    if(phase==='game'||combatants[myId].inGame){
+      showToast('','tg1','⚔️ ¡Ataque enemigo!',2500);
+    }
+  });
+
+  // Listen for players leaving
+  fbRoom.child('players').on('child_removed',snap=>{
+    const p=snap.val();
+    if(p&&p.id!==myId) onPeerLeft(p.id);
+  });
+
+  lobbyStatus.textContent='';
+}
+
+/* ═══════════════════════════════════════════════
+   CLIENT
+═══════════════════════════════════════════════ */
+function clientJoin(rid){
+  lobbyStart.disabled=true;
+  lobbyStatus.textContent='Conectando…';
+  isHost=false; myRoomId=rid.toUpperCase();
+  myId='guest_'+Date.now().toString(36);
+
+  fbRoom=fbDb.ref('rooms/'+myRoomId);
+  fbMsgRef=fbRoom.child('messages');
+  fbPresenceRef=fbRoom.child('players/'+myId);
+
+  // Check room exists
+  fbRoom.child('meta').once('value',snap=>{
+    if(!snap.exists()){
+      lobbyStatus.textContent='Sala no encontrada. Comprueba el enlace.';
+      lobbyStart.disabled=false;
+      return;
+    }
+    // Write presence
+    fbPresenceRef.set({id:myId,name:myName,team:'?',ts:Date.now()});
+    fbPresenceRef.onDisconnect().remove();
+
+    combatants[myId]={id:myId,name:myName,team:'?',ships:[],_shipObjs:[],inGame:false,score:0};
+    startListening();
+    lobbyStatus.textContent='Conectado. Esperando sala…';
+  });
+}
+
+/* ═══════════════════════════════════════════════
+   HOST RECEIVES
+═══════════════════════════════════════════════ */
+function hostReceive(msg){
+  const fromId=msg._from;
+
+  switch(msg.type){
+
+    case 'hello':{
+      combatants[fromId]={id:fromId,name:msg.name,team:'?',ships:[],_shipObjs:[],inGame:false,score:0};
+      sendTo(fromId,{
+        type:'room_state',
+        players:serializeCombatants(),
+        hostId:myId,
+        battleStarted,
+        avgShips:calcAvgLivingShips()
+      });
+      broadcastAll({type:'player_joined',player:{id:fromId,name:msg.name,team:'?'}},fromId);
+      break;
+    }
+
+    case 'choose_team':{
+      if(combatants[fromId]) combatants[fromId].team=msg.team;
+      const quota=battleStarted?calcAvgLivingShips():10;
+      const team=msg.team||'B';
+      sendTo(fromId,{type:'go_place',quota,team,battleStarted});
+      broadcastAll({type:'player_team_set',id:fromId,team},fromId);
+      break;
+    }
+
+    case 'ships_ready':{
+      combatants[fromId].ships=msg.ships;
+      combatants[fromId].inGame=true;
+      reconstructShips(fromId,msg.ships);
+      broadcastAll({type:'fleet_ready',id:fromId,name:combatants[fromId].name,team:combatants[fromId].team,ships:msg.ships},fromId);
+
+      const readyPlayers=Object.values(combatants).filter(c=>c.inGame);
+      const hasEnemies=readyPlayers.some(c=>c.team==='A')&&readyPlayers.some(c=>c.team==='B');
+
+      if(!battleStarted&&hasEnemies){
+        battleStarted=true;
+        activeTurnId=fromId;
+        const payload={type:'battle_start',activeTurnId,combatants:serializeCombatants(),allShips:buildShipsPayload()};
+        broadcastAll(payload);
+        onBattleStart(payload);
+      } else if(battleStarted){
+        sendTo(fromId,{type:'mid_join',activeTurnId,combatants:serializeCombatants(),allShips:buildShipsPayload()});
+        injectTurnAfterCurrent(fromId);
+        broadcastAll({type:'turn_update',activeTurnId});
+      }
+      break;
+    }
+
+    case 'host_placed':{
+      combatants[myId].ships=msg.ships;
+      combatants[myId].inGame=true;
+      reconstructShips(myId,msg.ships);
+      const ready=Object.values(combatants).filter(c=>c.inGame);
+      const hasEnemies=ready.some(c=>c.team==='A')&&ready.some(c=>c.team==='B');
+      if(!battleStarted&&hasEnemies){
+        battleStarted=true;
+        activeTurnId=Object.keys(combatants).find(id=>combatants[id].team==='B'&&combatants[id].inGame)||myId;
+        const payload={type:'battle_start',activeTurnId,combatants:serializeCombatants(),allShips:buildShipsPayload()};
+        broadcastAll(payload);
+        onBattleStart(payload);
+      }
+      break;
+    }
+
+    case 'aim':{
+      broadcastAll({...msg},fromId);
+      showGhostCursor(msg.gfx,msg.gfy,enemyColor());
+      break;
+    }
+    case 'aim_end':{
+      broadcastAll({...msg},fromId);
+      hideGhostCursor();
+      break;
+    }
+    case 'shot':{
+      broadcastAll({...msg},fromId);
+      processShot(msg);
+      applyRivalShot(msg);
+      hideGhostCursor();
+      // Check if shooter sunk all enemies → game over
+      const shooterTeam=combatants[fromId]?combatants[fromId].team:null;
+      const enemiesAllSunk=shooterTeam&&Object.values(combatants).every(c=>{
+        if(c.team===shooterTeam||!c.inGame||!c._shipObjs) return true;
+        return c._shipObjs.every(s=>s.hp<=0);
+      });
+      if(enemiesAllSunk){
+        broadcastAll({type:'game_over',winnerId:fromId});
+        showFinal();
+      }
+      break;
+    }
+
+    case 'turn_done':{
+      advanceTurn(fromId);
+      break;
+    }
+  }
+}
+
+/* ═══════════════════════════════════════════════
+   CLIENT RECEIVES
+═══════════════════════════════════════════════ */
+function clientReceive(msg){
+
+  switch(msg.type){
+
+    case 'room_state':{
+      if(msg.players) Object.assign(combatants, msg.players);
+      showJoinScreen(msg);
+      break;
+    }
+
+    case 'player_joined':{
+      combatants[msg.player.id]=msg.player;
+      updateLobbyList();
+      break;
+    }
+
+    case 'player_team_set':{
+      if(combatants[msg.id]) combatants[msg.id].team=msg.team;
+      updateLobbyList();
+      break;
+    }
+
+    case 'go_place':{
+      myTeam=msg.team;
+      const teamColor=msg.team==='A'?'var(--c1)':'var(--c2)';
+      showArmingAlert();
+      setTimeout(()=>{
+        showToast('','','<span style="color:'+teamColor+'">Adelante Comandante</span>',2000);
+      },400);
+      setTimeout(()=>launchPlacement(msg.quota,msg.team),3200);
+      break;
+    }
+
+    case 'fleet_ready':{
+      combatants[msg.id]={...(combatants[msg.id]||{}),name:msg.name,team:msg.team,inGame:true};
+      reconstructShips(msg.id,msg.ships);
+      if(phase==='game') updateEnemyDisplay();
+      break;
+    }
+
+    case 'battle_start':
+    case 'mid_join':{
+      onBattleStart(msg);
+      break;
+    }
+
+    case 'aim':{
+      if(msg._from!==myId) showGhostCursor(msg.gfx,msg.gfy,enemyColor());
+      break;
+    }
+    case 'aim_end':{
+      hideGhostCursor();
+      break;
+    }
+    case 'shot':{
+      hideGhostCursor();
+      if(msg._from!==myId) applyRivalShot(msg);
+      break;
+    }
+
+    case 'turn_update':{
+      activeTurnId=msg.activeTurnId;
+      renderOnlineGame();
+      break;
+    }
+
+    case 'player_left':{
+      delete combatants[msg.id];
+      renderOnlineGame();
+      break;
+    }
+
+    case 'game_over': showFinal(); break;
+  }
+}
+
+/* ═══════════════════════════════════════════════
+   ONLINE GAME FUNCTIONS
+═══════════════════════════════════════════════ */
+function myColor(){ return myTeam==='A'?hex(1):hex(2); }
+function enemyColor(){ return myTeam==='A'?hex(2):hex(1); }
+
+function onBattleStart(msg){
+  if(msg.combatants) Object.keys(msg.combatants).forEach(id=>{
+    combatants[id]={...(combatants[id]||{}),...msg.combatants[id]};
+  });
+  activeTurnId=msg.activeTurnId;
+  if(msg.allShips) Object.entries(msg.allShips).forEach(([id,arr])=>reconstructShips(id,arr));
+
+  phase='game'; history=[]; score={1:0,2:0}; remaining={1:[],2:[]};
+  stopPlacementTimer();
+  [pTop,pBot].forEach(p=>p.querySelectorAll('.mk,.mini-exp,.shot-mk,.impact-mk').forEach(d=>d.remove()));
+
+  myOnlineShips=(combatants[myId]&&combatants[myId]._shipObjs)||[];
+  myOnlineShips.forEach(s=>{
+    if(!s.wrap){
+      const displayFy=myTeam==='A'?1-s.fy:s.fy;
+      const w=createShipEl(s,myColor());
+      pBot.appendChild(w); positionShipEl(w,pBot,s.fx,displayFy); s.wrap=w;
+      s._displayFy=displayFy;
+    }
+    s.wrap.style.display='';
+  });
+
+  buildEnemyDisplay();
+  showInviteButton();
+  renderOnlineGame();
+}
+
+function buildEnemyDisplay(){
+  enemyOnlineShips=[];
+  Object.entries(combatants).forEach(([id,c])=>{
+    if(id===myId||c.team===myTeam||!c._shipObjs) return;
+    c._shipObjs.forEach(s=>{ s.ownerId=id; });
+    enemyOnlineShips.push(...c._shipObjs);
+  });
+  enemyOnlineShips.forEach(s=>{
+    if(!s.wrap){
+      const enemyTeam=combatants[s.ownerId]?.team||'B';
+      const displayFy=enemyTeam==='B'?1-s.fy:s.fy;
+      const w=createShipEl(s,enemyColor());
+      pTop.appendChild(w); positionShipEl(w,pTop,s.fx,displayFy); s.wrap=w;
+      s._displayFy=displayFy;
+    }
+    s.wrap.style.display='';
+  });
+}
+
+function updateEnemyDisplay(){
+  Object.entries(combatants).forEach(([id,c])=>{
+    if(id===myId||c.team===myTeam||!c._shipObjs) return;
+    c._shipObjs.forEach(s=>{
+      s.ownerId=id;
+      if(!enemyOnlineShips.includes(s)){
+        enemyOnlineShips.push(s);
+        const enemyTeam=c.team||'B';
+        const displayFy=enemyTeam==='B'?1-s.fy:s.fy;
+        const w=createShipEl(s,enemyColor());
+        pTop.appendChild(w); positionShipEl(w,pTop,s.fx,displayFy); s.wrap=w;
+        s._displayFy=displayFy;
+      }
+    });
+  });
+}
+
+function renderOnlineGame(){
+  const myTurn=(activeTurnId===myId);
+  pBot.classList.toggle('can-click',myTurn&&!firingLocked);
+  pBot.classList.toggle('no-click',!myTurn||firingLocked);
+  pTop.classList.add('no-click'); pTop.classList.remove('can-click');
+  if(myTurn) firingLocked=false;
+  const nm=combatants[activeTurnId]?combatants[activeTurnId].name:'...';
+  phaseMsg.innerHTML=myTurn
+    ?`<b style="color:${myColor()}">Tu turno</b>`
+    :`<b style="color:var(--muted)">${nm} dispara</b>`;
+  phaseMsg.style.display='';
+}
+
+function processShot(msg){
+  if(!msg.hitShipId) return;
+  const owner=combatants[msg.hitOwnerId];
+  if(owner&&owner._shipObjs){
+    const s=owner._shipObjs.find(s=>s.id===msg.hitShipId);
+    if(s) s.hp=Math.max(0,s.hp-1);
+  }
+}
+
+function applyRivalShot(msg){
+  const shooter=combatants[msg._from];
+  if(!shooter) return;
+  if(msg.isHit&&msg.hitShipId){
+    if(shooter.team===myTeam){
+      const s=enemyOnlineShips.find(s=>s.id===msg.hitShipId);
+      if(s){
+        s.hp=Math.max(0,s.hp-1);
+        redrawShipSVG(s,s.hp<=0?'#1a3060':enemyColor());
+        const rTop=pTop.getBoundingClientRect();
+        const dfy=(s._displayFy!==undefined)?s._displayFy:s.fy;
+        miniExplosion(pTop,msg.gfx*rTop.width,dfy*rTop.height,myColor());
+      }
+    } else {
+      const s=myOnlineShips.find(s=>s.id===msg.hitShipId);
+      if(s){
+        s.hp=Math.max(0,s.hp-1);
+        redrawShipSVG(s,s.hp<=0?'#1a3060':myColor());
+        const rBot=pBot.getBoundingClientRect();
+        const dfy=(s._displayFy!==undefined)?s._displayFy:s.fy;
+        miniExplosion(pBot,msg.gfx*rBot.width,dfy*rBot.height,enemyColor());
+      }
+    }
+  }
+  renderOnlineGame();
+}
+
+let _lastAimSend=0;
+
+function broadcastAim(gfx,gfy){
+  const now=Date.now();
+  if(now-_lastAimSend<50) return;
+  _lastAimSend=now;
+  sendMsg({type:'aim',gfx,gfy});
+}
+
+function getGhostCursor(){
+  let g=document.getElementById('ghost-cursor');
+  if(!g){
+    g=aimCursor.cloneNode(true);
+    g.id='ghost-cursor';
+    g.style.opacity='0.45';
+    g.style.zIndex='35';
+    document.body.appendChild(g);
+  }
+  return g;
+}
+
+function showGhostCursor(gfx,gfy,color){
+  // Show attacker's aim on pTop — where their shots land from the spectator's perspective
+  const rTop=pTop.getBoundingClientRect();
+  const x=gfx*rTop.width+rTop.left;
+  const y=(1-gfy)*rTop.height+rTop.top;
+  const g=getGhostCursor();
+  g.style.left=x+'px';
+  g.style.top=y+'px';
+  g.querySelectorAll('circle,line').forEach(el=>el.setAttribute('stroke',color));
+  g.querySelector('circle:last-of-type').setAttribute('fill',color);
+  g.classList.add('show');
+}
+
+function hideGhostCursor(){
+  const g=document.getElementById('ghost-cursor');
+  if(g) g.classList.remove('show');
+}
+function handleFireOnline(e){
+  if(gameMode!=='online'||activeTurnId!==myId||firingLocked) return;
+  firingLocked=true;
+
+  const r=pBot.getBoundingClientRect();
+  const gfx=Math.min(1,Math.max(0,(e.clientX-r.left)/r.width));
+  const gfy=Math.min(1,Math.max(0,(e.clientY-r.top)/r.height));
+
+  const rTop=pTop.getBoundingClientRect();
+  const sx=gfx*rTop.width, sy=(1-gfy)*rTop.height;
+
+  let hitShip=null, bestDist=Infinity;
+  enemyOnlineShips.filter(s=>s.hp>0).forEach(ship=>{
+    const displayFy=ship._displayFy!==undefined?ship._displayFy:ship.fy;
+    const cx=ship.fx*rTop.width, cy=displayFy*rTop.height;
+    let dx=sx-cx, dy=sy-cy;
+    if(ship.angleDeg){
+      const rad=-ship.angleDeg*Math.PI/180;
+      const rdx=dx*Math.cos(rad)-dy*Math.sin(rad);
+      const rdy=dx*Math.sin(rad)+dy*Math.cos(rad);
+      dx=rdx; dy=rdy;
+    }
+    const hw=ship.type.w/2, hh=ship.type.h/2;
+    if(Math.abs(dx)<=hw&&Math.abs(dy)<=hh){
+      const d=Math.sqrt((sx-cx)**2+(sy-cy)**2);
+      if(d<bestDist){bestDist=d;hitShip=ship;}
+    }
+  });
+
+  const isHit=!!hitShip;
+  const mc=myColor(), ec=enemyColor();
+
+  const sm=document.createElement('div');sm.className='mk shot-mk no-transition';
+  sm.style.left=(gfx*r.width)+'px';sm.style.top=(gfy*r.height)+'px';
+  sm.appendChild(drawShotSVG(mc,isHit));pBot.appendChild(sm);
+
+  if(isHit){
+    hitShip.hp--;
+    redrawShipSVG(hitShip,hitShip.hp<=0?'#1a3060':ec);
+    miniExplosion(pTop,sx,sy,mc);
+    const im=document.createElement('div');im.className='mk impact-mk no-transition';
+    im.style.left=sx+'px';im.style.top=sy+'px';
+    im.appendChild(drawImpactSVG(mc,true));pTop.appendChild(im);
+  }
+
+  const shotMsg={type:'shot',gfx,gfy,isHit,
+    hitShipId:hitShip?hitShip.id:null,hitOwnerId:hitShip?hitShip.ownerId:null};
+
+  if(isHost){
+    broadcastAll(shotMsg);
+    processShot({...shotMsg,_from:myId});
+  } else {
+    sendMsg(shotMsg);
+  }
+
+  // Check win condition: all enemy ships sunk
+  const allSunk=enemyOnlineShips.every(s=>s.hp<=0);
+
+  setTimeout(()=>{
+    if(allSunk){
+      // Game over — broadcast and show final
+      if(isHost) broadcastAll({type:'game_over',winnerId:myId});
+      else sendMsg({type:'game_over',winnerId:myId});
+      showFinal();
+    } else if(!isHit){
+      // Miss → change turn
+      showToast('✗','bad','Fallo — turno del rival',1400);
+      sendMsg({type:'turn_done'});
+      firingLocked=false;
+    } else {
+      // Hit → keep turn, unlock to fire again
+      showToast('✓','good','¡Impacto! Sigue disparando',1400);
+      firingLocked=false;
+    }
+  },600);
+}
+
+/* ── Lobby helpers ── */
+function showJoinScreen(msg){
+  const jb=document.createElement('div');jb.id='join-box';
+  jb.style.cssText='display:flex;flex-direction:column;align-items:center;gap:10px;margin-top:8px;';
+  const lbl=document.createElement('div');
+  lbl.style.cssText='font-family:Exo 2;font-weight:200;font-size:.7rem;letter-spacing:3px;color:#7ab0e8;text-transform:uppercase;';
+  lbl.textContent='Elige bando';
+  const btns=document.createElement('div');btns.style.cssText='display:flex;gap:10px;';
+  // t:'B'=Enemigo=naranja(A), t:'A'=Refuerzo=turquesa(B)
+  // myPreferredTeam 'A'=naranja → joiner elige t:'B' (enemigo del host si host es A)
+  // myPreferredTeam 'B'=turquesa → joiner elige t:'A' (refuerzo, mismo color)
+  [{t:'B',label:'⚔ Enemigo',color:'#ff6b35'},{t:'A',label:'🛡 Refuerzo',color:'#4ecdc4'}].forEach(opt=>{
+    const b=document.createElement('button');
+    b.className='lobby-input';
+    // Pre-highlight según color elegido en lobby
+    const isDefault=(myPreferredTeam==='A'&&opt.t==='B')||(myPreferredTeam==='B'&&opt.t==='A');
+    b.style.cssText=`color:${opt.color};border-color:${opt.color};cursor:pointer;padding:6px 14px;font-size:.75rem;opacity:${isDefault?'1':'.45'};`;
+    b.textContent=opt.label;
+    b.onclick=()=>{
+      myTeam=opt.t==='B'?'A':'B'; // B=enemigo=equipo contrario al host
+      // realmente el team en el protocolo es el equipo de juego directo
+      myTeam=opt.t; // override: protocolo usa t directamente
+      sendMsg({type:'choose_team',team:opt.t});
+      jb.remove();
+      lobbyStatus.textContent='Esperando confirmación…';
+    };
+    btns.appendChild(b);
+  });
+  jb.appendChild(lbl);jb.appendChild(btns);
+  const old=document.getElementById('join-box');if(old)old.remove();
+  lobbyStart.parentNode.insertBefore(jb,lobbyStart);
+  lobbyEl.classList.remove('hide');
+}
+
+function updateLobbyList(){ /* no-op — join screen handles it */ }
+function showLobbyPlayerList(){}
+
+function showArmingAlert(){
+  const el=document.getElementById('invasion-alert');
+  if(!el) return;
+  el.classList.add('show');
+  const cd=document.getElementById('invasion-countdown');
+  let n=3; if(cd) cd.textContent=n;
+  const iv=setInterval(()=>{
+    n--; if(cd) cd.textContent=n;
+    if(n<=0){ clearInterval(iv); el.classList.remove('show'); }
+  },1000);
+}
+
+function onPeerLeft(id){
+  delete combatants[id];
+  broadcastAll({type:'player_left',id});
+  if(phase==='game') renderOnlineGame();
+}
+
+function reconstructShips(cid,shipArr){
+  const c=combatants[cid]; if(!c) return;
+  c._shipObjs=shipArr.map(s=>{
+    const type=SHIP_TYPES.find(t=>t.id===s.typeId);
+    return {type,fx:s.fx,fy:s.fy,hp:s.hp,id:s.id,wrap:null,ownerId:cid,angleDeg:s.angleDeg||0};
+  });
+}
+
+function buildShipsPayload(){
+  const out={};
+  Object.entries(combatants).forEach(([id,c])=>{ out[id]=c.ships||[]; });
+  return out;
+}
+
+function serializeCombatants(){
+  const out={};
+  Object.entries(combatants).forEach(([id,c])=>{
+    out[id]={id,name:c.name,team:c.team,ships:c.ships||[],inGame:!!c.inGame,score:c.score||0};
+  });
+  return out;
+}
+
+function calcAvgLivingShips(){
+  const active=Object.values(combatants).filter(c=>c.inGame&&c._shipObjs&&c._shipObjs.length);
+  if(!active.length) return 10;
+  const total=active.reduce((s,c)=>s+c._shipObjs.filter(sh=>sh.hp>0).length,0);
+  return Math.max(1,Math.round(total/active.length));
+}
+
+function countLivingShips(cid){
+  const c=combatants[cid];
+  return c&&c._shipObjs?c._shipObjs.filter(s=>s.hp>0).length:0;
+}
+
+function injectTurnAfterCurrent(id){
+  // Just let the new player go next
+  activeTurnId=id;
+}
+
+function advanceTurn(fromId){
+  const ids=Object.keys(combatants).filter(id=>combatants[id].inGame);
+  if(!ids.length) return;
+  const cur=ids.indexOf(activeTurnId);
+  activeTurnId=ids[(cur+1)%ids.length];
+  broadcastAll({type:'turn_update',activeTurnId});
+  renderOnlineGame();
+}
+
+function launchPlacement(quota, team){
+  onlineShipQuota=quota||10;
+  myTeam=team||'B';
+  gameMode='online';
+  ships={1:[],2:[]};history=[];score={1:0,2:0};remaining={1:[],2:[]};
+  [pTop,pBot].forEach(p=>p.querySelectorAll('.mk,.mini-exp,.shot-mk,.impact-mk').forEach(d=>d.remove()));
+  lobbyEl.classList.add('hide');
+  const jb=document.getElementById('join-box'); if(jb) jb.remove();
+  const lb=document.getElementById('lobby-player-list'); if(lb) lb.remove();
+  document.getElementById('game-shell').classList.add('show');
+  buildPips();
+  // Joiner siempre coloca en pBot (slot 2), que es el panel inferior que controla
+  const mySlot=2;
+  startPlacement(mySlot);
+  startPlacementTimer(30,()=>{ if(ships[mySlot].length<onlineShipQuota) randomPlacement(mySlot); });
+  showInviteButton();
+}
+
+let onlineShipQuota=10;
+let placementTimerIv=null;
+
+function startPlacementTimer(secs,onDone){
+  stopPlacementTimer();
+  let el=document.getElementById('ptimer');
+  if(!el){
+    el=document.createElement('div');el.id='ptimer';
+    el.style.cssText='position:fixed;top:44px;left:50%;transform:translateX(-50%);z-index:80;font-family:Exo 2;font-weight:100;font-size:1.3rem;letter-spacing:4px;color:#a8d4ff;padding:4px 14px;background:rgba(1,9,21,.88);border:1px solid rgba(80,130,220,.2);border-radius:2px;pointer-events:none;';
+    document.body.appendChild(el);
+  }
+  let t=secs; el.textContent='⏱ '+t+'s';
+  placementTimerIv=setInterval(()=>{
+    t--; el.textContent='⏱ '+t+'s';
+    if(t<=5) el.style.color='#ff6b35';
+    if(t<=0){ clearInterval(placementTimerIv); el.remove(); onDone(); }
+  },1000);
+}
+
+function stopPlacementTimer(){
+  if(placementTimerIv){ clearInterval(placementTimerIv); placementTimerIv=null; }
+  const el=document.getElementById('ptimer'); if(el) el.remove();
+}
+
+function hostGoPlace(){}
+
+function showInviteButton(){
+  const btn=document.getElementById('invite-btn');
+  if(!btn||btn.style.display==='inline') return;
+  btn.style.display='inline';
+  btn.onclick=()=>{ openInviteOverlay(); };
+}
+
+function openInviteOverlay(){
+  const url=location.origin+location.pathname+'?room='+myRoomId;
+  const overlay=document.getElementById('invite-overlay');
+  document.getElementById('invite-url').textContent=url;
+  document.getElementById('invite-qr-wrap').style.display='none';
+  document.getElementById('invite-qr-img').src='';
+  overlay.style.display='flex';
+
+  document.getElementById('invite-copy-btn').onclick=()=>{
+    const copyBtn=document.getElementById('invite-copy-btn');
+    navigator.clipboard.writeText(url).then(()=>{
+      copyBtn.textContent='✓ Copiado';
+      setTimeout(()=>copyBtn.textContent='📋 Copiar',2000);
+    }).catch(()=>{ prompt('Enlace:',url); });
+  };
+
+  document.getElementById('invite-qr-btn').onclick=()=>{
+    const wrap=document.getElementById('invite-qr-wrap');
+    const img=document.getElementById('invite-qr-img');
+    if(wrap.style.display==='none'){
+      const qrUrl='https://api.qrserver.com/v1/create-qr-code/?size=160x160&bgcolor=e8f4ff&color=010915&data='+encodeURIComponent(url);
+      img.src=qrUrl;
+      wrap.style.display='block';
+      document.getElementById('invite-qr-btn').textContent='▦ Ocultar QR';
+    } else {
+      wrap.style.display='none';
+      document.getElementById('invite-qr-btn').textContent='▦ QR';
+    }
+  };
+
+  document.getElementById('invite-close-btn').onclick=()=>{ overlay.style.display='none'; };
+  overlay.onclick=(e)=>{ if(e.target===overlay) overlay.style.display='none'; };
+}
+
+/* ── Small ship random flash ── */
+function scheduleFlash(ship,color){
+  if(!ship||ship.hp<=0||!ship.wrap) return;
+  const delay=9000+Math.random()*21000;
+  ship._flashTimer=setTimeout(()=>{
+    if(!ship.wrap||ship.hp<=0) return;
+    const svg=ship.wrap.querySelector('svg');
+    if(!svg) return;
+    const flash=document.createElementNS('http://www.w3.org/2000/svg','circle');
+    flash.setAttribute('cx','4');flash.setAttribute('cy','4');
+    flash.setAttribute('r','6');flash.setAttribute('fill',color);
+    flash.setAttribute('opacity','0.85');
+    svg.appendChild(flash);
+    let op=0.85;
+    const fade=setInterval(()=>{
+      op-=0.07; flash.setAttribute('opacity',String(op));
+      if(op<=0){ clearInterval(fade); try{flash.remove();}catch{} }
+    },30);
+    scheduleFlash(ship,color);
+  },delay);
+}
+
+function activateSmallFlashes(player){
+  ships[player].forEach(s=>{
+    if(s.type.id==='xs') scheduleFlash(s,hex(player));
+  });
+}
+
+
+buildPips();
+if(getUrlRoom()){
+  const rid=getUrlRoom();
+  fbInit();
+  myName=(lobbyName.value.trim()||'Comandante').slice(0,16);
+  // Switch to battle mode visually
+  document.querySelectorAll('.mode-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('mode-battle').classList.add('active');
+  gameMode='online';
+  document.getElementById('lobby-j2-row').style.display='none';
+  document.getElementById('lobby-rooms').classList.add('show');
+  document.getElementById('lobby-start').style.display='none';
+  lobbyStatus.textContent='Uniéndose a la partida…';
+  setTimeout(()=>clientJoin(rid), 800);
+}
+
+document.getElementById('fo-replay').addEventListener('click',()=>{
+  foOverlay.classList.remove('show');
+  ships={1:[],2:[]};history=[];score={1:0,2:0};remaining={1:[],2:[]};
+  gameMode='local';myTeam='A';activeTurnId=null;battleStarted=false;
+  combatants={};myOnlineShips=[];enemyOnlineShips=[];
+  // Cleanup Firebase listeners
+  if(fbMsgRef&&fbMsgListener){ fbMsgRef.off('child_added',fbMsgListener); fbMsgListener=null; }
+  if(fbPresenceRef){ fbPresenceRef.remove(); fbPresenceRef=null; }
+  if(fbRoom){ fbRoom.child('players').off(); fbRoom=null; }
+  fbMsgRef=null; processedMsgIds=new Set();
+  [pTop,pBot].forEach(p=>{
+    p.style.opacity='';p.style.pointerEvents='';
+    p.querySelectorAll('.mk,.mini-exp,.shot-mk,.impact-mk').forEach(d=>d.remove());
+  });
+  const ib=document.getElementById('invite-btn'); if(ib) ib.remove();
+  buildPips();refreshScores();
+  lobbyStart.disabled=false;lobbyStart.textContent='Comenzar';lobbyStart.style.display='';
+  lobbyStatus.textContent='';lobbyUrlBox.classList.remove('show');
+  document.querySelectorAll('.mode-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('mode-local').classList.add('active');
+  document.getElementById('game-shell').classList.remove('show');
+  const jo=document.getElementById('join-box'); if(jo) jo.remove();
+  const pl=document.getElementById('lobby-player-list'); if(pl) pl.remove();
+  lobbyEl.classList.remove('hide');
+  history.replace&&history.replace(location.pathname);
+});
+
 </script>
-
-<!-- SHARE MODAL -->
-<div id="shareOverlay" onclick="if(event.target===this)closeShare()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:999;align-items:center;justify-content:center">
-  <div style="background:#0b1a35;border:1px solid rgba(59,130,246,.35);border-radius:10px;padding:1.5rem;width:min(340px,90vw);box-shadow:0 20px 60px rgba(0,0,0,.8);text-align:center">
-    <div style="font-family:Barlow Condensed,sans-serif;font-size:1.1rem;letter-spacing:.15em;text-transform:uppercase;color:#38bdf8;margin-bottom:1rem">Compartir sesión</div>
-    <div id="qrContainer" style="background:#fff;border-radius:8px;padding:12px;display:inline-block;margin-bottom:1rem"></div>
-    <div style="font-family:JetBrains Mono,monospace;font-size:.7rem;color:#94a3b8;word-break:break-all;margin-bottom:1rem;padding:0 .5rem" id="shareUrl"></div>
-    <div style="display:flex;gap:.6rem;justify-content:center;flex-wrap:wrap">
-      <button onclick="doShareCopy()" id="shareCopyBtn" style="background:#1d4ed8;border:1px solid #3b82f6;color:#fff;font-family:Barlow Condensed,sans-serif;font-weight:600;letter-spacing:.1em;text-transform:uppercase;padding:.5rem 1.2rem;border-radius:4px;cursor:pointer;font-size:.9rem">📋 Copiar enlace</button>
-      <button onclick="closeShare()" style="background:transparent;border:1px solid rgba(255,255,255,.15);color:#94a3b8;font-family:Barlow Condensed,sans-serif;font-weight:600;letter-spacing:.1em;text-transform:uppercase;padding:.5rem 1.2rem;border-radius:4px;cursor:pointer;font-size:.9rem">Cerrar</button>
-    </div>
-  </div>
-</div>
-<script>
-function openShare() {
-  const url = location.href.split("#")[0] + "#" + sessionId;
-  document.getElementById("shareUrl").textContent = url;
-  document.getElementById("qrContainer").innerHTML = "";
-  new QRCode(document.getElementById("qrContainer"), {
-    text: url, width: 180, height: 180,
-    colorDark: "#000000", colorLight: "#ffffff",
-    correctLevel: QRCode.CorrectLevel.M
-  });
-  const o = document.getElementById("shareOverlay");
-  o.style.display = "flex";
-}
-function closeShare() {
-  document.getElementById("shareOverlay").style.display = "none";
-}
-function doShareCopy() {
-  const url = document.getElementById("shareUrl").textContent;
-  navigator.clipboard.writeText(url);
-  const btn = document.getElementById("shareCopyBtn");
-  btn.textContent = "✓ Copiado"; 
-  setTimeout(() => btn.textContent = "📋 Copiar enlace", 2000);
-}</script>
 </body>
 </html>
