@@ -71,8 +71,8 @@ body{
 #game-shell{display:none;flex-direction:column;flex:1;overflow:hidden;}
 #game-shell.show{display:flex;}
 /* ARENA */
-#arena{position:relative;z-index:5;display:flex;flex-direction:column;flex:1;overflow:hidden;justify-content:center;}
-.panel{flex:0 0 40%;position:relative;overflow:hidden;touch-action:manipulation;}
+#arena{position:relative;z-index:5;display:flex;flex-direction:column;flex:1;overflow:hidden;}
+.panel{flex:1;position:relative;overflow:hidden;touch-action:manipulation;}
 .panel.can-click{cursor:crosshair;}
 .panel.no-click{pointer-events:none;}
 #panel-top{border-bottom:1px solid var(--div);background:linear-gradient(180deg,rgba(2,10,26,.28),rgba(1,7,18,.08));}
@@ -88,20 +88,25 @@ body{
 #panel-top .ptag{color:var(--c1);}
 #panel-bot .ptag{color:var(--c2);}
 
-/* Zona de exclusión de colocación — solo visible en phase:place */
+/* Zona de exclusión de colocación */
 .panel::before,.panel::after{
-  content:'';position:absolute;left:0;right:0;height:10%;
-  pointer-events:none;z-index:2;
+  content:'';position:absolute;left:0;right:0;height:20%;
+  pointer-events:none !important;z-index:-1;opacity:0;transition:opacity .3s;
   background:repeating-linear-gradient(
     45deg,
-    rgba(168,212,255,.03) 0px,rgba(168,212,255,.03) 3px,
-    transparent 3px,transparent 9px
+    rgba(255,80,80,.07) 0px,rgba(255,80,80,.07) 4px,
+    transparent 4px,transparent 10px
   );
-  border:none;opacity:0;transition:opacity .3s;
 }
-.panel::before{top:0;border-bottom:1px dashed rgba(168,212,255,.12);}
-.panel::after{bottom:0;border-top:1px dashed rgba(168,212,255,.12);}
+/* pTop: zona prohibida solo en la parte superior (lejos de la división) */
+#panel-top::before{top:0;border-bottom:2px dashed rgba(255,100,80,.35);display:block;}
+#panel-top::after{display:none;}
+/* pBot: zona prohibida solo en la parte inferior (lejos de la división) */
+#panel-bot::before{display:none;}
+#panel-bot::after{bottom:0;border-top:2px dashed rgba(255,100,80,.35);display:block;}
 .panel.placing::before,.panel.placing::after{opacity:1;}
+@keyframes zone-flash{0%,100%{opacity:1;}50%{opacity:.2;}}
+.panel.placing.zone-warn::before,.panel.placing.zone-warn::after{animation:zone-flash .25s 2;}
 
 /* NAME EDITOR OVERLAY */
 #name-editor{
@@ -849,7 +854,10 @@ function randomPlacement(player){
       for(let q=0;q<tt.quota;q++){
         const hw=tt.w/2/pw+.02,hh=tt.h/2/ph+.02;
         const fx=hw+Math.random()*(1-2*hw);
-        const fy=hh+Math.random()*(1-2*hh);
+        // Restringir fy al borde lejano: pTop→no arriba, pBot→no abajo
+        const fyMin=Math.max(hh, panel(player)===pTop?0.20:hh);
+        const fyMax=Math.min(1-hh, panel(player)===pBot?0.80:1-hh);
+        const fy=fyMin+Math.random()*(fyMax-fyMin);
         const angleDeg=tt.id==='lg'?snapAngle(Math.random()*360):0;
         const ship={type:tt,fx,fy,hp:tt.hp,id:ships[player].length,wrap:null,angleDeg};
         ships[player].push(ship);
@@ -876,8 +884,44 @@ function getFrac(clientX,clientY,panelEl){
   const r=panelEl.getBoundingClientRect();
   return {
     fx:Math.min(.95,Math.max(.05,(clientX-r.left)/r.width)),
-    fy:Math.min(.90,Math.max(.10,(clientY-r.top)/r.height))
+    fy:Math.min(.95,Math.max(.05,(clientY-r.top)/r.height))
   };
+}
+// Para placement: limita fy solo en el borde lejano del panel
+// pTop: prohibido fy < 0.20 (borde superior)
+// pBot: prohibido fy > 0.80 (borde inferior)
+// El toque siempre se registra (para poder apuntar/arrastrar), pero la
+// posición se clampea a la zona válida y se marca _warn para avisar.
+function getPlaceFrac(clientX,clientY,panelEl){
+  const raw=getFrac(clientX,clientY,panelEl);
+  const isTop=panelEl===pTop;
+  const OUT_ZONE=0.20;
+  if(isTop && raw.fy < OUT_ZONE) return {...raw, fy:OUT_ZONE, _warn:true};
+  if(!isTop && raw.fy > (1-OUT_ZONE)) return {...raw, fy:1-OUT_ZONE, _warn:true};
+  return raw;
+}
+let _buzzTimeout=null;
+function placeBuzz(panelEl){
+  if(_buzzTimeout) return;
+  // Vibración
+  if(navigator.vibrate) navigator.vibrate([40,20,40]);
+  // Audio buzz
+  try{
+    const ctx=new (window.AudioContext||window.webkitAudioContext)();
+    const osc=ctx.createOscillator();
+    const gain=ctx.createGain();
+    osc.connect(gain);gain.connect(ctx.destination);
+    osc.type='square';osc.frequency.value=120;
+    gain.gain.setValueAtTime(.18,ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(.001,ctx.currentTime+.22);
+    osc.start();osc.stop(ctx.currentTime+.22);
+  }catch(e){}
+  // Flash visual
+  panelEl.classList.add('zone-warn');
+  _buzzTimeout=setTimeout(()=>{
+    panelEl.classList.remove('zone-warn');
+    _buzzTimeout=null;
+  },600);
 }
 
 function doPlace(player,fx,fy,angleDeg){
@@ -914,7 +958,9 @@ function doPlace(player,fx,fy,angleDeg){
     if(phase!=='place'||placingPlayer!==player)return;
     e.preventDefault();
     const t=e.touches[0];
-    const {fx,fy}=getFrac(t.clientX,t.clientY,pan);
+    const place=getPlaceFrac(t.clientX,t.clientY,pan);
+    if(place._warn) placeBuzz(pan);
+    const {fx,fy}=place;
     if(selectedType.id==='lg'){
       const ship=doPlace(player,fx,fy,0);
       if(ship) lgDrag={ship,player,x0:t.clientX,y0:t.clientY};
@@ -955,7 +1001,9 @@ function doPlace(player,fx,fy,angleDeg){
 
   pan.addEventListener('mousedown',e=>{
     if(phase!=='place'||placingPlayer!==player||selectedType.id!=='lg')return;
-    const {fx,fy}=getFrac(e.clientX,e.clientY,pan);
+    const _pf=getPlaceFrac(e.clientX,e.clientY,pan);
+    if(_pf._warn) placeBuzz(pan);
+    const {fx,fy}=_pf;
     const ship=doPlace(player,fx,fy,0);
     if(!ship)return;
     lgDrag={ship,player,x0:e.clientX,y0:e.clientY};
@@ -973,7 +1021,9 @@ function doPlace(player,fx,fy,angleDeg){
 
   pan.addEventListener('click',e=>{
     if(phase!=='place'||placingPlayer!==player||selectedType.id==='lg')return;
-    const {fx,fy}=getFrac(e.clientX,e.clientY,pan);
+    const _pf=getPlaceFrac(e.clientX,e.clientY,pan);
+    if(_pf._warn) placeBuzz(pan);
+    const {fx,fy}=_pf;
     doPlace(player,fx,fy,0);
   });
 });
@@ -1118,7 +1168,7 @@ let aimClientX=0,aimClientY=0,aimActive=false;
 function getAimShift(player){
   const p=panel(player);
   const h=p.getBoundingClientRect().height||p.offsetHeight||200;
-  return Math.round(h*0.28);
+  return Math.round(h*0.10);
 }
 function calcAimPos(touchX,touchY,player){
   const shift=getAimShift(player);
@@ -1158,15 +1208,13 @@ function addFireTouch(panelEl,player){
     e.preventDefault();
     const t=e.touches[0];
     const r=panelEl.getBoundingClientRect();
-    if(t.clientX<r.left||t.clientX>r.right||t.clientY<r.top||t.clientY>r.bottom){
-      aimCursor.classList.remove('show');
-      return;
-    }
-    const pos=calcAimPos(t.clientX,t.clientY,player);
+    const cx=Math.min(r.right-1,Math.max(r.left+1,t.clientX));
+    const cy=Math.min(r.bottom-1,Math.max(r.top+1,t.clientY));
+    const pos=calcAimPos(cx,cy,player);
     showCursor(pos.x,pos.y,'#a8d4ff');
     if(gameMode==='online'){
-      const gfx=(t.clientX-r.left)/r.width;
-      const gfy=(t.clientY-r.top)/r.height;
+      const gfx=(cx-r.left)/r.width;
+      const gfy=(cy-r.top)/r.height;
       broadcastAim(gfx,gfy);
     }
   },{passive:false});
@@ -1176,10 +1224,8 @@ function addFireTouch(panelEl,player){
     e.preventDefault();
     hideCursor();
     if(gameMode==='online') sendMsg({type:'aim_end'});
-    // Clamp against rival panel (where the shot lands)
-    const riv=rivalPanel(player).getBoundingClientRect();
-    const fx=Math.min(riv.right-2,Math.max(riv.left+2,aimClientX));
-    const fy=Math.min(riv.bottom-2,Math.max(riv.top+2,aimClientY));
+    const fx=aimClientX;
+    const fy=aimClientY;
     if(gameMode==='online') handleFireOnline({clientX:fx,clientY:fy});
     else handleFire({clientX:fx,clientY:fy},player);
   },{passive:false});
