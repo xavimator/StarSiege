@@ -813,7 +813,9 @@ function startTrainBattle(){
       for(let q=0;q<tt.quota;q++){
         const hw=tt.w/2/pw+.02, hh=tt.h/2/ph+.02;
         const fx=hw+Math.random()*(1-2*hw);
-        const fy=hh+Math.random()*(1-2*hh);
+        const fyMin=Math.max(hh,0.20); // pTop: zona prohibida en el 20% superior
+        const fyMax=1-hh;
+        const fy=fyMin+Math.random()*(fyMax-fyMin);
         const angleDeg=tt.id==='lg'?snapAngle(Math.random()*360):0;
         const ship={type:tt,fx,fy,hp:tt.hp,id:ships[1].length,wrap:null,angleDeg};
         ships[1].push(ship);
