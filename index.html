@@ -2255,7 +2255,13 @@ function handleFireOnline(e){
     } else if(!isHit){
       // Miss → change turn
       showToast('✗','bad','Fallo — turno del rival',1400);
-      sendMsg({type:'turn_done'});
+      if(isHost){
+        // Host is the turn authority — own messages are filtered by its
+        // own Firebase listener, so advance locally and broadcast.
+        advanceTurn(myId);
+      } else {
+        sendTo('host',{type:'turn_done'});
+      }
       firingLocked=false;
     } else {
       // Hit → keep turn, unlock to fire again
