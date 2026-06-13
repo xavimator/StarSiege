@@ -412,6 +412,20 @@ body{
   display:none;
 }
 #ghost-cursor.show{display:block;}
+@keyframes deployFloat{
+  0%{opacity:0;transform:translate(-50%,-40%) scale(.9);}
+  15%{opacity:1;transform:translate(-50%,-50%) scale(1);}
+  80%{opacity:1;transform:translate(-50%,-62%) scale(1);}
+  100%{opacity:0;transform:translate(-50%,-74%) scale(1.04);}
+}
+.deploy-banner{
+  position:absolute;left:50%;top:50%;z-index:40;
+  pointer-events:none;white-space:nowrap;text-align:center;
+  font-family:'Exo 2',sans-serif;font-weight:100;font-style:italic;
+  font-size:clamp(1rem,4.4vw,1.6rem);letter-spacing:4px;text-transform:uppercase;
+  text-shadow:0 0 14px currentColor;
+  animation:deployFloat 3s ease-out forwards;
+}
 </style>
 <body>
 <!-- LOBBY -->
@@ -784,11 +798,31 @@ function buildPicker(player){
     if(rem>0){btn.addEventListener('click',()=>{
       selectedType=tt;buildPicker(player);
       const msg=document.getElementById('picker-msg');
+      const labelColor=(gameMode==='online')?myColor():hex(player);
+      const labelName=(gameMode==='online')?myName:(player===1?(window._p1name||'Jugador 1'):(window._p2name||'Jugador 2'));
       msg.innerHTML=tt.id==='lg'
-        ?`<span style="color:${hex(player)};font-weight:300">J${player}</span><span style="color:var(--muted)"> — pulsa y arrastra para girar</span>`
-        :`<span style="color:${hex(player)};font-weight:300">J${player}</span><span style="color:var(--muted)"> — despliega</span>`;
+        ?`<span style="color:${labelColor};font-weight:300">${getInitials(labelName)}</span><span style="color:var(--muted)"> — pulsa y arrastra para girar</span>`
+        :`<span style="color:${labelColor};font-weight:300">${getInitials(labelName)}</span>`;
     });}
     pickerBtns.appendChild(btn);});}
+
+function getInitials(name){
+  const parts=(name||'').trim().split(/\s+/).filter(Boolean);
+  if(!parts.length) return '??';
+  if(parts.length===1) return parts[0].slice(0,2).toUpperCase();
+  return (parts[0][0]+parts[1][0]).toUpperCase();
+}
+
+function showDeployBanner(player){
+  const p=panel(player);
+  const old=p.querySelector('.deploy-banner'); if(old) old.remove();
+  const el=document.createElement('div');
+  el.className='deploy-banner';
+  el.textContent='¡Despliega tu arsenal!';
+  el.style.color=(gameMode==='online')?myColor():hex(player);
+  p.appendChild(el);
+  setTimeout(()=>{ if(el.parentNode) el.remove(); },3000);
+}
 
 function startPlacement(player){
   placingPlayer=player;phase='place';ships[player]=[];initPicks(player);
@@ -798,14 +832,15 @@ function startPlacement(player){
   picker.classList.remove('hide');buildPicker(player);
   const msg=document.getElementById('picker-msg');
   const labelColor=(gameMode==='online')?myColor():hex(player);
-  const labelName=(gameMode==='online')?myName:`J${player}`;
-  msg.innerHTML=`<span style="color:${labelColor};font-weight:300">${labelName}</span><span style="color:var(--muted)"> — despliega</span>`;
+  const labelName=(gameMode==='online')?myName:(player===1?(window._p1name||'Jugador 1'):(window._p2name||'Jugador 2'));
+  msg.innerHTML=`<span style="color:${labelColor};font-weight:300">${getInitials(labelName)}</span>`;
   // Listen for picker selection to update hint
   pickerBtns.onchange=null;
   pickerBtns._player=player;
   phaseMsg.innerHTML='';
   document.getElementById('rand-btn').style.color=(gameMode==='online')?myColor():hex(player);
-  document.getElementById('rand-btn').onclick=(e)=>{e.stopPropagation();randomPlacement(player);};}
+  document.getElementById('rand-btn').onclick=(e)=>{e.stopPropagation();randomPlacement(player);};
+  showDeployBanner(player);}
 
 function startTrainBattle(){
   // Clear both panels
