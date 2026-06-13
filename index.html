@@ -2172,6 +2172,11 @@ function applyRivalShot(msg){
         im.style.left=impX+'px';im.style.top=impY+'px';
         im.appendChild(drawImpactSVG(ec,true));pBot.appendChild(im);
       }
+    } else {
+      const impX=msg.gfx*rBot.width, impY=msg.gfy*rBot.height;
+      const im=document.createElement('div');im.className='mk impact-mk no-transition';
+      im.style.left=impX+'px';im.style.top=impY+'px';
+      im.appendChild(drawImpactSVG(ec,false));pBot.appendChild(im);
     }
   }
   renderOnlineGame();
@@ -2258,6 +2263,10 @@ function handleFireOnline(e){
     const im=document.createElement('div');im.className='mk impact-mk no-transition hit-shrink';
     im.style.left=sx+'px';im.style.top=sy+'px';
     im.appendChild(drawImpactSVG(mc,true));pTop.appendChild(im);
+  } else {
+    const im=document.createElement('div');im.className='mk impact-mk no-transition';
+    im.style.left=sx+'px';im.style.top=sy+'px';
+    im.appendChild(drawImpactSVG(mc,false));pTop.appendChild(im);
   }
 
   const shotMsg={type:'shot',gfx,gfy,isHit,
