@@ -2069,6 +2069,10 @@ function onBattleStart(msg){
   buildEnemyDisplay();
   showInviteButton();
   renderOnlineGame();
+
+  const starterName=(activeTurnId===myId)?'Tú':(combatants[activeTurnId]?.name||'Rival');
+  const starterColor=(activeTurnId===myId)?myColor():enemyColor();
+  showToast('','',`🎲 Empieza disparando: <b style="color:${starterColor}">${starterName}</b>`,2200);
 }
 
 function buildEnemyDisplay(){
