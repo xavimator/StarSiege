@@ -1222,8 +1222,8 @@ function addFireTouch(panelEl,player){
     const pos=calcAimPos(cx,cy,player);
     showCursor(pos.x,pos.y,'#a8d4ff');
     if(gameMode==='online'){
-      const gfx=(cx-r.left)/r.width;
-      const gfy=(cy-r.top)/r.height;
+      const gfx=Math.min(1,Math.max(0,(pos.x-r.left)/r.width));
+      const gfy=Math.min(1,Math.max(0,(pos.y-r.top)/r.height));
       broadcastAim(gfx,gfy);
     }
   },{passive:false});
@@ -2133,24 +2133,44 @@ function processShot(msg){
 function applyRivalShot(msg){
   const shooter=combatants[msg._from];
   if(!shooter) return;
-  if(msg.isHit&&msg.hitShipId){
-    if(shooter.team===myTeam){
+  if(shooter.team===myTeam){
+    // A teammate fired at our shared enemy fleet (shown in my pTop)
+    if(msg.isHit&&msg.hitShipId){
       const s=enemyOnlineShips.find(s=>s.id===msg.hitShipId);
       if(s){
         s.hp=Math.max(0,s.hp-1);
         redrawShipSVG(s,s.hp<=0?'#1a3060':enemyColor());
         const rTop=pTop.getBoundingClientRect();
         const dfy=(s._displayFy!==undefined)?s._displayFy:s.fy;
-        miniExplosion(pTop,msg.gfx*rTop.width,dfy*rTop.height,myColor());
+        const x=s.fx*rTop.width, y=dfy*rTop.height;
+        miniExplosion(pTop,x,y,myColor());
+        const im=document.createElement('div');im.className='mk impact-mk no-transition hit-shrink';
+        im.style.left=x+'px';im.style.top=y+'px';
+        im.appendChild(drawImpactSVG(myColor(),true));pTop.appendChild(im);
       }
-    } else {
+    }
+  } else {
+    // Rival fired at my own fleet (shown in my pBot)
+    const rTop=pTop.getBoundingClientRect();
+    const rBot=pBot.getBoundingClientRect();
+    const ec=enemyColor();
+
+    // Shot marker: rival's firing position, mirrored into my pTop
+    const shotX=msg.gfx*rTop.width, shotY=(1-msg.gfy)*rTop.height;
+    const sm=document.createElement('div');sm.className='mk shot-mk no-transition';
+    sm.style.left=shotX+'px';sm.style.top=shotY+'px';
+    sm.appendChild(drawShotSVG(ec,msg.isHit));pTop.appendChild(sm);
+
+    if(msg.isHit&&msg.hitShipId){
       const s=myOnlineShips.find(s=>s.id===msg.hitShipId);
       if(s){
         s.hp=Math.max(0,s.hp-1);
         redrawShipSVG(s,s.hp<=0?'#1a3060':myColor());
-        const rBot=pBot.getBoundingClientRect();
-        const dfy=(s._displayFy!==undefined)?s._displayFy:s.fy;
-        miniExplosion(pBot,msg.gfx*rBot.width,dfy*rBot.height,enemyColor());
+        const impX=msg.gfx*rBot.width, impY=msg.gfy*rBot.height;
+        miniExplosion(pBot,impX,impY,ec);
+        const im=document.createElement('div');im.className='mk impact-mk no-transition hit-shrink';
+        im.style.left=impX+'px';im.style.top=impY+'px';
+        im.appendChild(drawImpactSVG(ec,true));pBot.appendChild(im);
       }
     }
   }
